@@ -1,0 +1,125 @@
+<?php
+/**
+ * @category    Magento 2
+ * @package     Sendinblue_Sendinblue
+ * URL:  https:www.sendinblue.com
+ */
+namespace Sendinblue\Sendinblue\Observer;
+
+use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Framework\Event\Observer;
+use Magento\Framework\Event\ObserverInterface;
+use Magento\Sales\Api\Data\OrderInterface;
+use Sendinblue\Sendinblue\Model;
+use Sendinblue\Sendinblue\Model\SendinblueSib;
+
+/**
+ * Class SibShipObserver
+ * @package Sendinblue\Sendinblue\Observer
+ */
+class SibShipObserver implements ObserverInterface
+{
+
+    /**
+     * @var SendinblueSib
+     */
+    protected $sendinblueSib;
+
+    /**
+     * @var OrderInterface
+     */
+    protected $order;
+
+    /**
+     * @var CustomerAddress
+     */
+    protected $customerAddress;
+
+    /**
+     * SibOrderObserver constructor.
+     * @param SendinblueSib $sendinblueSib
+     * @param OrderInterface $order
+     * @param CustomerAddress $customerAddress
+     */
+    public function __construct(
+        SendinblueSib $sendinblueSib,
+        OrderInterface $order,
+        CustomerAddress $customerAddress
+    )
+    {
+        $this->sendinblueSib = $sendinblueSib;
+        $this->order = $order;
+        $this->customerAddress = $customerAddress;
+    }
+
+    /**
+     * @param Observer $observer
+     */
+    public function execute(Observer $observer)
+    {
+        $model = $this->sendinblueSib;
+
+        $shipment = $observer->getEvent()->getShipment();
+        $order = $shipment->getOrder();
+        $dateValue = $model->getDbData('sendin_date_format');
+        $orderStatus = $model->getDbData('api_sms_shipment_status');
+        $senderOrder = $model->getDbData('sender_shipment');
+        $senderOrderMessage = $model->getDbData('sender_shipment_message');
+        $orderId = $order->getID();
+        /**
+         * @FIXME use repository instead
+         */
+        $orderDatamodel = $this->order->load($orderId);
+        $orderData = $orderDatamodel->getData();
+        $email = $orderData['customer_email'];
+        $orderID = $orderData['increment_id'];
+        $orderPrice = $orderData['grand_total'];
+        $dateAdded = $orderData['created_at'];
+        $sibStatus = $model->syncSetting();
+        if ($sibStatus == 1) {
+            if (!empty($dateValue) && $dateValue == 'dd-mm-yyyy') {
+                $orderDate = date('d-m-Y', strtotime($dateAdded));
+            } else {
+                $orderDate = date('m-d-Y', strtotime($dateAdded));
+            }
+
+            if ($orderStatus == 1 && !empty($senderOrder) && !empty($senderOrderMessage)) {
+                $custId = $orderData['customer_id'];
+                if (!empty($custId)) {
+                    /**
+                     * @FIXME use repository instead
+                     */
+                    $customers = $model->_customers->load($custId);
+                    $shoppingId =  $customers->getDefaultShipping();
+                    $address = $this->customerAddress->load($shoppingId);
+                }
+
+                $firstname = $address->getFirstname();
+                $lastname = $address->getLastname();
+                $telephone = !empty($address->getTelephone()) ? $address->getTelephone() : '';
+                $countryId = !empty($address->getCountry()) ? $address->getCountry() : '';
+                $smsVal = '';
+                if (!empty($countryId) && !empty($telephone)) {
+                    $countryCode = $model->getCountryCode($countryId);
+                    if (!empty($countryCode)) {
+                        $smsVal = $model->checkMobileNumber($telephone, $countryCode);
+                    }
+                }
+                $firstName = str_replace('{first_name}', $firstname, $senderOrderMessage);
+                $lastName = str_replace('{last_name}', $lastname."\r\n", $firstName);
+                $procuctPrice = str_replace('{order_price}', $orderPrice, $lastName);
+                $orderDate = str_replace('{order_date}', $orderDate."\r\n", $procuctPrice);
+                $msgbody = str_replace('{order_reference}', $orderID, $orderDate);
+                $smsData = [];
+
+                if (!empty($smsVal)) {
+                    $smsData['to'] = $smsVal;
+                    $smsData['from'] = $senderOrder;
+                    $smsData['text'] = $msgbody;
+                    $smsData['type'] = 'transactional';
+                    $model->sendSmsApi($smsData);
+                }
+            }
+        }
+    }
+}

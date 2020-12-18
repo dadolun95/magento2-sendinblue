@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * @category    Magento 2
+ * @package     Sendinblue_Sendinblue
+ * URL:  https:www.sendinblue.com
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:App/etc/routes.xsd">
+    <router id="standard">
+        <route id="sendinblue" frontName="sendinblue">
+            <module name="Sendinblue_Sendinblue"/>
+        </route>
+    </router>
+</config>
