@@ -59,7 +59,6 @@ class Post extends \Magento\Backend\App\Action
 
             if (isset($post['submitForm2']) && $post['update_tempvalue'] == 'update_tempvalue') {
                 $this->saveTemplateValue();
-                // update template id configuration.
             }
 
             if (isset($post['submitUpdateImport']) && $post['import_function'] == 'import_function') {
@@ -141,7 +140,7 @@ class Post extends \Magento\Backend\App\Action
             }
         } catch (\Exception $e) {
             $this->messageManager->addError(
-                __('We can\'t process your request right now.')
+                $e->getMessage()
             );
             $this->_redirect('sendinblue/sib/index');
             return;
@@ -157,43 +156,40 @@ class Post extends \Magento\Backend\App\Action
             return;
         }
         try {
+
             $model = $this->sibObject();
 
             $error = false;
-            if (!\Zend_Validate::is($post['apikey'], 'NotEmpty')) {
+            if ($post['apikey'] === null || $post['apikey'] === '') {
                 $error = true;
             }
-            if (!\Zend_Validate::is(trim($post['status']), 'NotEmpty')) {
+            if ($post['status'] === null || $post['status'] === '') {
                 $error = true;
             }
-            if (!\Zend_Validate::is(trim($post['submitUpdate']), 'NotEmpty')) {
+            if ($post['submitUpdate'] === null || $post['submitUpdate'] === '') {
                 $error = true;
             }
             if ($error) {
-                throw new \Magento\Framework\Exception\MailException(new \Magento\Framework\Phrase('API key is invalid.'));
+                throw new \Exception(__('API key is invalid.'));
             }
-            $apiKey = trim($post['apikey']);
+            $apikey = trim($post['apikey']);
             $status = trim($post['status']);
-            $storeID = !empty($model->_storeId) ? $model->_storeId : 0;
-            $scopeInerface = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
             if ($status == 1) {
-                $apikey = trim($post['apikey']);
-                //We remove all records that belongs to the old API
-                $oldApiKey = trim($model->_getValueDefault->getValue('sendinblue/api_key_v3', $scopeInerface));
+                $oldApiKey = trim($model->getDbData('api_key_v3'));
                 if ($apikey != $oldApiKey) {
                     $model->resetDataBaseValue();
                     $model->resetSmtpDetail();
                 }
-                $model->_resourceConfig->saveConfig('sendinblue/api_key_v3', $apikey, $model->_scopeTypeDefault, $model->_storeId);
-                $model->_resourceConfig->saveConfig('sendinblue/api_key_status', $status, $model->_scopeTypeDefault, $model->_storeId);
-                $sendinListdata = $model->_getValueDefault->getValue('sendinblue/selected_list_data', $scopeInerface);
-                $sendinFirstrequest = $model->_getValueDefault->getValue('sendinblue/first_request', $scopeInerface);
+                $model->updateDbData('api_key_v3', $apikey);
+                $model->updateDbData('api_key_status', $status);
+                $sendinListdata = $model->getDbData('selected_list_data');
+                $sendinFirstrequest = $model->getDbData('first_request');
 
                 if (empty($sendinListdata) && empty($sendinFirstrequest)) {
-                    $model->_resourceConfig->saveConfig('sendinblue/first_request', 1, $model->_scopeTypeDefault, $model->_storeId);
-                    $model->_resourceConfig->saveConfig('sendinblue/subscribe_setting', 1, $model->_scopeTypeDefault, $model->_storeId);
-                    $model->_resourceConfig->saveConfig('sendinblue/notify_cron_executed', 0, $model->_scopeTypeDefault, $model->_storeId);
-                    $model->_resourceConfig->saveConfig('sendinblue/syncronize', 1, $model->_scopeTypeDefault, $model->_storeId);
+                    $model->updateDbData('first_request', 1);
+                    $model->updateDbData('subscribe_setting', 1);
+                    $model->updateDbData('notify_cron_executed', 0);
+                    $model->updateDbData('syncronize', 1);
                 }
 
                 $response = $model->checkApikey($apikey);
@@ -208,7 +204,7 @@ class Post extends \Magento\Backend\App\Action
                     return;
                 } else {
                     //We reset all settings  in case the API key is invalid.
-                    $model->_resourceConfig->saveConfig('sendinblue/api_key_status', 0, $model->_scopeTypeDefault, $model->_storeId);
+                    $model->updateDbData('api_key_status', 0);
                     $model->resetDataBaseValue();
                     $this->messageManager->addError(
                         __('API key is invalid.')
@@ -218,7 +214,7 @@ class Post extends \Magento\Backend\App\Action
                 }
             }
         } catch (\Exception $e) {
-            $model->_resourceConfig->saveConfig('sendinblue/api_key_status', 0, $model->_scopeTypeDefault, $model->_storeId);
+            $model->updateDbData('api_key_status', 0);
             $model->resetDataBaseValue();
             $this->messageManager->addError(
                 __('API key is invalid.')

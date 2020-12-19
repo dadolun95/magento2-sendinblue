@@ -1,0 +1,27 @@
+<?php
+/**
+ * @category    Magento 2
+ * @package     Sendinblue_Sendinblue
+ * URL:  https:www.sendinblue.com
+ */
+?>
+<?php
+/**
+ * @var \Sendinblue\Sendinblue\ViewModel\AutomationTrackingManager $automationTrackingManager
+ */
+$automationTrackingManager = $block->getData('automationTrackingManager');
+?>
+<!-- BEGIN SENDINBLUE ANALYTICS CODE -->
+<script type="text/x-magento-init">
+{
+    "*": {
+        "Sendinblue_Sendinblue/js/automation-track": {
+            "isCookieRestrictionModeEnabled": <?= (int)$automationTrackingManager->isCookieRestrictionModeEnabled() ?>,
+            "currentWebsite": <?= (int)$automationTrackingManager->getCurrentWebsiteId() ?>,
+            "cookieName": "<?= /* @noEscape */ \Magento\Cookie\Helper\Cookie::IS_USER_ALLOWED_SAVE_COOKIE ?>",
+            "apikey": "<?= /* @noEscape */ $automationTrackingManager->getApiKey(); ?>"
+        }
+    }
+}
+</script>
+<!-- END SENDINBLUE ANALYTICS CODE -->

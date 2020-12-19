@@ -20,7 +20,9 @@ class Mmailin
      * @param $params
      * @throws \Exception
      */
-    public function __construct($params)
+    public function __construct(
+        $params
+    )
     {
         if (!function_exists('curl_init')) {
             throw new \Exception('Mailin requires CURL module');

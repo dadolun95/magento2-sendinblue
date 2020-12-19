@@ -26,21 +26,6 @@ class SendinblueSibClient
     private $lastResponseCode;
 
     /**
-     * SibApiClient constructor.
-     */
-    public function __construct($key = "")
-    {
-        if( empty($key) ) {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            $model = $objectManager->create('Sendinblue\Sendinblue\Model\SendinblueSib');
-            $this->apiKey = trim($model->_getValueDefault->getValue('sendinblue/api_key_v3', $model->_scopeTypeDefault));
-        }
-        else {
-            $this->apiKey = trim($key);
-        }
-    }
-
-    /**
      * @return mixed
      */
     public function getAccount()
@@ -49,12 +34,22 @@ class SendinblueSibClient
     }
 
     /**
+     * @param $key
+     * @return $this
+     */
+    public function setApiKey($key)
+    {
+        $this->apiKey = trim($key);
+        return $this;
+    }
+
+    /**
      * @param $data
      * @return mixed
      */
     public function getLists($data)
     {
-        return $this->get("/contacts/lists",$data);
+        return $this->get("/contacts/lists", $data);
     }
 
 
@@ -64,7 +59,7 @@ class SendinblueSibClient
      */
     public function getListsInFolder($folder, $data)
     {
-        return $this->get("/contacts/folders/".$folder."/lists", $data);
+        return $this->get("/contacts/folders/" . $folder . "/lists", $data);
     }
 
     /**
@@ -73,7 +68,7 @@ class SendinblueSibClient
      */
     public function importUsers($data)
     {
-        return $this->post("/contacts/import",$data);
+        return $this->post("/contacts/import", $data);
     }
 
     /**
@@ -88,17 +83,15 @@ class SendinblueSibClient
         do {
             if ($folder > 0) {
                 $list_data = $this->getListsInFolder($folder, array('limit' => $limit, 'offset' => $offset));
-            }
-            else {
+            } else {
                 $list_data = $this->getLists(array('limit' => $limit, 'offset' => $offset));
             }
-            if ( !isset($list_data["lists"]) ) {
+            if (!isset($list_data["lists"])) {
                 $list_data = array("lists" => array(), "count" => 0);
             }
-            $lists["lists"] = array_merge($lists["lists"], $list_data["lists"]) ;
+            $lists["lists"] = array_merge($lists["lists"], $list_data["lists"]);
             $offset += 50;
-        }
-        while ( count($lists["lists"]) < $list_data["count"] );
+        } while (count($lists["lists"]) < $list_data["count"]);
         $lists["count"] = $list_data["count"];
         return $lists;
     }
@@ -112,12 +105,12 @@ class SendinblueSibClient
     }
 
     /**
-     * @param $type,$name,$data
+     * @param $type ,$name,$data
      * @return mixed
      */
     public function createAttribute($type, $name, $data)
     {
-        return $this->post("/contacts/attributes/".$type."/".$name,$data);
+        return $this->post("/contacts/attributes/" . $type . "/" . $name, $data);
     }
 
     /**
@@ -138,10 +131,9 @@ class SendinblueSibClient
         $limit = 50;
         do {
             $folder_data = $this->getFolders(array('limit' => $limit, 'offset' => $offset));
-            $folders["folders"] = array_merge($folders["folders"],$folder_data["folders"]) ;
+            $folders["folders"] = array_merge($folders["folders"], $folder_data["folders"]);
             $offset += 50;
-        }
-        while ( count($folders["folders"]) < $folder_data["count"] );
+        } while (count($folders["folders"]) < $folder_data["count"]);
         $folders["count"] = $folder_data["count"];
         return $folders;
     }
@@ -170,7 +162,7 @@ class SendinblueSibClient
      */
     public function getUser($email)
     {
-        return $this->get("/contacts/". urlencode($email));
+        return $this->get("/contacts/" . urlencode($email));
     }
 
     /**
@@ -179,21 +171,21 @@ class SendinblueSibClient
      */
     public function createUser($data)
     {
-        return $this->post("/contacts",$data);
+        return $this->post("/contacts", $data);
     }
 
     /**
-     * @param $email,$data
+     * @param $email ,$data
      * @return mixed
      */
     public function updateUser($email, $data)
     {
-        return $this->put("/contacts/".urlencode($email), $data);
+        return $this->put("/contacts/" . urlencode($email), $data);
     }
 
     public function sendSms($data)
     {
-        return $this->post('/transactionalSMS/sms',$data);
+        return $this->post('/transactionalSMS/sms', $data);
     }
 
     /**
@@ -202,7 +194,7 @@ class SendinblueSibClient
      */
     public function setPartner($data)
     {
-        return $this->post('/account/partner',$data);
+        return $this->post('/account/partner', $data);
     }
 
     /**
@@ -211,12 +203,12 @@ class SendinblueSibClient
      */
     public function sendTransactionalTemplate($data)
     {
-        return $this->post("/smtp/email",$data);
+        return $this->post("/smtp/email", $data);
     }
 
     public function createSmsCampaign($data)
     {
-        return $this->post('/smsCampaigns',$data);
+        return $this->post('/smsCampaigns', $data);
     }
 
 
@@ -226,7 +218,7 @@ class SendinblueSibClient
      */
     public function getEmailTemplates($data)
     {
-        return $this->get("/smtp/templates",$data);
+        return $this->get("/smtp/templates", $data);
     }
 
     /**
@@ -240,13 +232,12 @@ class SendinblueSibClient
         $limit = 50;
         do {
             $template_data = $this->getEmailTemplates(array('templateStatus' => 'true', 'limit' => $limit, 'offset' => $offset));
-            if ( !isset($template_data["templates"]) ) {
+            if (!isset($template_data["templates"])) {
                 $template_data = array("templates" => array(), "count" => 0);
             }
-            $templates["templates"] = array_merge($templates["templates"],$template_data["templates"]) ;
+            $templates["templates"] = array_merge($templates["templates"], $template_data["templates"]);
             $offset += 50;
-        }
-        while ( count($templates["templates"]) < $template_data["count"] );
+        } while (count($templates["templates"]) < $template_data["count"]);
         $templates["count"] = count($templates["templates"]);
         return $templates;
     }
@@ -257,7 +248,7 @@ class SendinblueSibClient
      */
     public function getTemplateById($id)
     {
-        return $this->get("/smtp/templates/". $id);
+        return $this->get("/smtp/templates/" . $id);
     }
 
     /**
@@ -266,7 +257,7 @@ class SendinblueSibClient
      */
     public function sendEmail($data)
     {
-        return $this->post("/smtp/email",$data);
+        return $this->post("/smtp/email", $data);
     }
 
     /**
@@ -331,22 +322,24 @@ class SendinblueSibClient
 
         $curl = curl_init();
 
-        curl_setopt_array($curl, [
-          CURLOPT_URL => $url,
-          CURLOPT_RETURNTRANSFER => true,
-          CURLOPT_ENCODING => "",
-          CURLOPT_MAXREDIRS => 10,
-          CURLOPT_TIMEOUT => 30,
-          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-          CURLOPT_CUSTOMREQUEST => $method,
-          CURLOPT_HTTPHEADER => [
-            "content-type: application/json",
-            "accept: application/json",
-            "api-key: ".$this->apiKey
-          ],
-        ]);
+        $params = [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => "",
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => [
+                "content-type: application/json",
+                "accept: application/json",
+                "api-key: " . $this->apiKey
+            ]
+        ];
 
-        if( !empty($body) ) {
+        curl_setopt_array($curl, $params);
+
+        if (!empty($body)) {
             curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($body));
         }
 

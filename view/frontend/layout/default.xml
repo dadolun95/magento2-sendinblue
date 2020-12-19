@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * @category    Magento 2
+ * @package     Sendinblue_Sendinblue
+ * URL:  https:www.sendinblue.com
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceBlock name="head.additional">
+            <block name="sendinblue_analytics" as="sendinblue_analytics" template="Sendinblue_Sendinblue::tag.phtml">
+                <arguments>
+                    <argument name="automationTrackingManager" xsi:type="object">Sendinblue\Sendinblue\ViewModel\AutomationTrackingManager</argument>
+                </arguments>
+            </block>
+        </referenceBlock>
+    </body>
+</page>

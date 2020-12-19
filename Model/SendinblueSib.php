@@ -9,6 +9,7 @@ namespace Sendinblue\Sendinblue\Model;
 
 use Magento\Backend\Model\Auth\Session as BackendAuthSession;
 use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerCollectionFactory;
 use Magento\Sales\Model\OrderFactory;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
 
@@ -79,6 +80,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @var ConfigHelper
      */
     protected $configHelper;
+    /**
+     * @var CustomerCollectionFactory
+     */
+    protected $customerCollectionFactory;
 
     public $_storeId;
 
@@ -86,7 +91,15 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
     public $apiKey;
 
-    public $backendAuthSession;
+    /**
+     * @var BackendAuthSession
+     */
+    protected $backendAuthSession;
+
+    /**
+     * @var \Magento\User\Model\User|null
+     */
+    protected $currentAdminUser = null;
 
     /**
      * SendinblueSib constructor.
@@ -101,11 +114,13 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param \Magento\Sales\Model\ResourceModel\Order\CollectionFactory $salesOrderCollectionFactory
      * @param \Magento\Framework\Setup\ModuleDataSetupInterface $getTb
      * @param \Magento\Framework\View\Element\Template $blocktemp
+     * @param CustomerCollectionFactory $customerCollectionFactory
      * @param BackendAuthSession $backendAuthSession
-     * @param \Sendinblue\Sendinblue\Model\MmailinFactory $mailingFactory
-     * @param \Sendinblue\Sendinblue\Model\SendinblueSibClientFactory $sendinblueSibClientFactory
+     * @param MmailinFactory $mailingFactory
+     * @param SendinblueSibClientFactory $sendinblueSibClientFactory
      * @param CustomerAddress $customerAddress
      * @param OrderFactory $orderFactory
+     * @param ConfigHelper $configHelper
      */
     public function __construct(
         \Magento\Config\Model\ResourceModel\Config $resourceConfig,
@@ -119,6 +134,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         \Magento\Sales\Model\ResourceModel\Order\CollectionFactory $salesOrderCollectionFactory,
         \Magento\Framework\Setup\ModuleDataSetupInterface $getTb,
         \Magento\Framework\View\Element\Template $blocktemp,
+        CustomerCollectionFactory $customerCollectionFactory,
         BackendAuthSession $backendAuthSession,
         MmailinFactory $mailingFactory,
         SendinblueSibClientFactory $sendinblueSibClientFactory,
@@ -139,6 +155,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $this->_storeManagerInterface = $storeManagerInterface;
         $this->_getTb = $getTb;
         $this->_blocktemp = $blocktemp;
+        $this->customerCollectionFactory = $customerCollectionFactory;
         $this->backendAuthSession = $backendAuthSession;
         $this->mailingFactory = $mailingFactory;
         $this->sendinblueSibClientFactory = $sendinblueSibClientFactory;
@@ -156,21 +173,23 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function getCurrentUser()
     {
-        $adminSession = $this->backendAuthSession;
-        return $adminSession->getUser()->getData();
+        if ($this->currentAdminUser === null) {
+            $this->currentAdminUser = $this->backendAuthSession->getUser();
+        }
+        return $this->currentAdminUser;
     }
 
     /**
-     * Description: create folder in Sendinblue
+     * create folder in Sendinblue
      *
      * @param $key
      */
     public function createFolderName($key)
     {
         $result = $this->checkFolderList($key);
+        $mailin = $this->createObjSibClient($key);
 
         if ($result == false) {
-            $mailin = $this->createObjSibClient($key);
             $response = $mailin->createFolder(array("name" => "magento"));
             if (SendinblueSibClient::RESPONSE_CODE_CREATED == $mailin->getLastResponseCode()) {
                 $this->createNewList($key, $response["id"]);
@@ -178,20 +197,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         } else {
             $this->createNewList($key, $result["folder"]["id"], (empty($result["list"]) ? false : $result["list"]["name"]));
         }
-        //Create the partner's name i.e. Magento on Sendinblue platform
-        $this->partnerMagento($key);
-    }
-
-    /**
-     * Method is used to add the partner's name in Sendinblue. In this case its "MAGENTO".
-     *
-     * @param $key
-     */
-    public function partnerMagento($key)
-    {
         $mailinPartner = array();
         $mailinPartner['partnerName'] = 'MAGENTO';
-        $mailin = $this->createObjSibClient($key);
         $mailin->setPartner($mailinPartner);
     }
 
@@ -317,52 +324,33 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function createObjSibClient($key = '')
     {
-        return $this->sendinblueSibClientFactory->create($key);
+        if ($key === '') {
+            $key = $this->getDbData('api_key_v3');
+        }
+        return $this->sendinblueSibClientFactory->create()->setApiKey($key);
     }
 
     /**
-     * Method to factory reset the configs on database.
+     * Reset the configs to factory
      */
     public function resetDataBaseValue()
     {
-        $this->_resourceConfig->saveConfig('sendinblue/ord_track_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/order_import_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/api_smtp_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/first_request', '', $this->_scopeTypeDefault, $this->_storeId);
-// We have to remove below line after all migrations done.
-//        $this->_resourceConfig->saveConfig('sendinblue/api_key', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/api_key_v3', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/selected_list_data', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/confirm_type', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/doubleoptin_redirect', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/optin_url_check', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/final_confirm_email', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/optin_list_id', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/final_template_id', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/api_sms_shipment_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/api_sms_campaign_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/api_sms_order_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/sib_automation_key', '', $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/sib_track_status', 0, $this->_scopeTypeDefault, $this->_storeId);
-        $this->_resourceConfig->saveConfig('sendinblue/sib_automation_enable', '', $this->_scopeTypeDefault, $this->_storeId);
-
+        $this->configHelper->resetDefaultValues();
     }
 
     /**
      * Description: reate Normal, Transactional, Calculated and Global attributes and their values
-     * on Sendinblue platform. This is necessary for the Shopify to add subscriber's details.
+     * on Sendinblue platform. This is necessary to add subscriber's details.
      *
-     * @param: no
-     * @return: true
-     * @updated: 22-June-2016
-     * @author: Amar Pandey <amarpandey@sendinblue.com>
+     * @param $key
+     * @param string $config
      */
     public function createAttributesName($key, $config = "")
     {
-        $required_attr["normal"] = $this->attrNormal($config);
-        $required_attr["calculated"] = $this->attrCalculated();
-        $required_attr["global"] = $this->attrGlobal();
-        $required_attr["transactional"] = $this->attrTransactional();
+        $required_attr["normal"] = $this->configHelper->normalizeSubscriptionAttributes($config);
+        $required_attr["calculated"] = $this->configHelper->getCalculatedSubscriptionAttributes();
+        $required_attr["global"] = $this->configHelper->getGlobalSubscriptionAttributes();
+        $required_attr["transactional"] = $this->configHelper->getTransactionalSubscriptionAttributes();
 
         $mailin = $this->createObjSibClient($key);
         $attr_list = $mailin->getAttributes();
@@ -411,125 +399,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     }
 
     /**
-     * Fetch attributes and their values
-     * on Sendinblue platform. This is necessary for the Prestashop to add subscriber's details.
-     */
-    public function allAttributesName()
-    {
-        $userLanguage = $this->getDbData('sendin_config_lang');
-        if ($userLanguage == 'fr') {
-            $attributesName = array(
-                'PRENOM' => 'firstname',
-                'NOM' => 'lastname',
-                'MAGENTO_LANG' => 'created_in',
-                'CLIENT' => 'client',
-                'SMS' => 'telephone',
-                'COMPANY' => 'company',
-                'CITY' => 'city',
-                'COUNTRY_ID' => 'country_id',
-                'POSTCODE' => 'postcode',
-                'STREET' => 'street',
-                'REGION' => 'region',
-                'STORE_ID' => 'store_id'
-            );
-        } else {
-            $attributesName = array(
-                'NAME' => 'firstname',
-                'SURNAME' => 'lastname',
-                'MAGENTO_LANG' => 'created_in',
-                'CLIENT' => 'client',
-                'SMS' => 'telephone',
-                'COMPANY' => 'company',
-                'CITY' => 'city',
-                'COUNTRY_ID' => 'country_id',
-                'POSTCODE' => 'postcode',
-                'STREET' => 'street',
-                'REGION' => 'region',
-                'STORE_ID' => 'store_id'
-            );
-        }
-        return $attributesName;
-    }
-
-    /**
-     * Fetch attributes name and type
-     * on Sendinblue platform. This is necessary for the Magento to add subscriber's details.
-     *
-     * @param string $config
-     * @return array
-     */
-    public function attrNormal($config = '')
-    {
-        if (!empty($config)) {
-            $langConfig = $config['lang'];
-        } else {
-            $langConfig = $this->getDbData('sendin_config_lang');
-        }
-        $attributesType = array(
-            array("name" => "MAGENTO_LANG", "category" => "normal", "type" => "text"),
-            array("name" => "CLIENT", "category" => "normal", "type" => "float"),
-            array("name" => "SMS", "category" => "normal", "type" => "text"),
-            array("name" => "COMPANY", "category" => "normal", "type" => "text"),
-            array("name" => "CITY", "category" => "normal", "type" => "text"),
-            array("name" => "COUNTRY_ID", "category" => "normal", "type" => "text"),
-            array("name" => "POSTCODE", "category" => "normal", "type" => "float"),
-            array("name" => "STREET", "category" => "normal", "type" => "text"),
-            array("name" => "REGION", "category" => "normal", "type" => "text"),
-            array("name" => "STORE_ID", "category" => "normal", "type" => "float"),
-        );
-        if ($langConfig == 'fr') {
-            $attributesType[] = array("name" => "PRENOM", "category" => "normal", "type" => "text");
-            $attributesType[] = array("name" => "NOM", "category" => "normal", "type" => "text");
-        } else {
-            $attributesType[] = array("name" => "NAME", "category" => "normal", "type" => "text");
-            $attributesType[] = array("name" => "SURNAME", "category" => "normal", "type" => "text");
-        }
-        return $attributesType;
-    }
-
-    /**
-     * @return array
-     */
-    public function attrCalculated()
-    {
-        $calcAttr = array(
-            array("name" => "MAGENTO_LAST_30_DAYS_CA", "category" => "calculated", "value" => "SUM[ORDER_PRICE,ORDER_DATE,>,NOW(-30)]"),
-            array("name" => "MAGENTO_ORDER_TOTAL", "category" => "calculated", "value" => "COUNT[ORDER_ID]"),
-            array("name" => "MAGENTO_CA_USER", "category" => "calculated", "value" => "SUM[ORDER_PRICE]")
-        );
-        return $calcAttr;
-    }
-
-    /**
-     * @return array
-     */
-    public function attrGlobal()
-    {
-        $globalAttr = array(
-            array("name" => "MAGENTO_CA_LAST_30DAYS", "category" => "global", "value" => "SUM[MAGENTO_LAST_30_DAYS_CA]"),
-            array("name" => "MAGENTO_CA_TOTAL", "category" => "global", "value" => "SUM[ORDER_USER]"),
-            array("name" => "MAGENTO_ORDERS_COUNT", "category" => "global", "value" => "SUM[MAGENTO_ORDER_TOTAL]")
-        );
-        return $globalAttr;
-    }
-
-    /**
-     * Fetch all Transactional Attributes
-     * on Sendinblue platform. This is necessary for the Magento to add subscriber's details.
-     *
-     * @return array
-     */
-    public function attrTransactional()
-    {
-        $transactionalAttributes = array(
-            array("name" => "ORDER_ID", "category" => "transactional", "type" => "id"),
-            array("name" => "ORDER_DATE", "category" => "transactional", "type" => "date"),
-            array("name" => "ORDER_PRICE", "category" => "transactional", "type" => "float")
-        );
-        return $transactionalAttributes;
-    }
-
-    /**
      * Description: Fetches all folders and all list within each folder of the user's Sendinblue
      * account and displays them to the user.
      *
@@ -574,6 +443,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      *
      * @param $listId
      * @return int
+     * @throws \Magento\Framework\Exception\FileSystemException
      * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
     public function sendAllMailIDToSendin($listId)
@@ -609,8 +479,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     {
         $data = array();
         $customerAddressData = array();
-        $attributesName = $this->allAttributesName();
-        $collection = $this->getCollection();
+        $attributesName = $this->configHelper->getDefaultSubscriptionAttributes();
+        $collection = $this->customerCollectionFactory->create()->getItems();
 
         foreach ($collection as $customers) {
             $customerData = $customers->getData();
@@ -656,11 +526,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
             if (!empty($customerAddressData[$subscriberEmail])) {
                 $customerAddressData[$subscriberEmail]['email'] = $subscriberEmail;
-                $responseByMerge[$count] = $this->mergeMyArray($attributesName, $customerAddressData[$subscriberEmail], $subscriberEmail);
+                $responseByMerge[$count] = $this->mergeSubscriptionData($attributesName, $customerAddressData[$subscriberEmail], $subscriberEmail);
             } else {
                 $storeId = $subsdata['store_id'];
                 $newsLetterData['client'] = $subsdata['customer_id'] > 0 ? 1 : 0;
-                $responseByMerge[$count] = $this->mergeMyArray($attributesName, $newsLetterData, $subscriberEmail);
+                $responseByMerge[$count] = $this->mergeSubscriptionData($attributesName, $newsLetterData, $subscriberEmail);
                 $responseByMerge[$count]['STORE_ID'] = $storeId;
                 $responseByMerge[$count]['MAGENTO_LANG'] = isset($storeNames[$storeId]) ? $storeNames[$storeId] : '';
             }
@@ -694,16 +564,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     }
 
     /**
-     * @FIXME use customerCollection
-     * @return \Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection
-     */
-    public function getCollection()
-    {
-        //Get customer collection
-        return $this->_customers->getCollection();
-    }
-
-    /**
      * @FIXME use customer repository
      * @param $customerId
      * @return mixed
@@ -721,7 +581,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param string $email
      * @return array
      */
-    public function mergeMyArray($one, $two, $email = "")
+    public function mergeSubscriptionData($one, $two, $email = "")
     {
         $emailData = $email ? array('EMAIL' => $email) : array();
         if (count($one) > 0) {
@@ -788,18 +648,24 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
     /**
      * Get core config table value data,
+     *
+     * @param $val
+     * @return mixed
      */
     public function getDbData($val)
     {
-        return $this->_getValueDefault->getValue('sendinblue/' . $val, \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        return $this->configHelper->getData($val);
     }
 
     /**
-     * Update core config table value and data,
+     * Update core config table value and data
+     *
+     * @param $key
+     * @param $value
      */
     public function updateDbData($key, $value)
     {
-        $this->_resourceConfig->saveConfig('sendinblue/' . $key, $value, $this->_scopeTypeDefault, $this->_storeId);
+        $this->configHelper->updateData($key, $value);
     }
 
     /**
@@ -908,15 +774,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function resetSmtpDetail()
     {
-        $this->updateDbData('api_smtp_status', 0);
-        $this->updateDbData('smtp_authentication', '');
-        $this->updateDbData('smtp_username', '');
-        $this->updateDbData('smtp_password', '');
-        $this->updateDbData('smtp_host', '');
-        $this->updateDbData('smtp_port', '');
-        $this->updateDbData('smtp_tls', '');
-        $this->updateDbData('smtp_option', '');
-        $this->updateDbData('relay_data_status', '');
+        $this->configHelper->resetSmtpDetail();
     }
 
     /**
@@ -932,7 +790,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
         $handle = fopen($this->_dir->getPath('media') . '/sendinblue_csv/ImportOldOrdersToSendinblue.csv', 'w+');
         fwrite($handle, 'EMAIL;ORDER_ID;ORDER_PRICE;ORDER_DATE' . PHP_EOL);
-        $collection = $this->getCollection();
+        $collection = $this->customerCollectionFactory->create()->getItems();
         foreach ($collection as $customers) {
             $customerData = $customers->getData();
             $email = $customerData['email'];
@@ -999,8 +857,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
         if (!empty($number)) {
             $adminData = $this->getCurrentUser();
-            $firstname = $adminData['firstname'];
-            $lastname = $adminData['lastname'];
+            $firstname = $adminData->getData('firstname');
+            $lastname = $adminData->getData('lastname');
             $characters = '1234567890';
             $referenceNumber = '';
             for ($i = 0; $i < 9; $i++) {
@@ -1320,17 +1178,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function syncSetting()
     {
-        $keyStatus = $this->getDbData('api_key_status');
-        $subsStatus = $this->getDbData('subscribe_setting');
-        if ($keyStatus == 1 && $subsStatus == 1) {
-            return 1;
-        } else {
-            return 0;
-        }
+        $this->configHelper->syncSetting();
     }
 
     /**
      * Unsibscribe single user in Sendinblue.
+     *
+     * @param $userEmail
+     * @return bool
      */
     public function unsubscribeByruntime($userEmail)
     {
@@ -1344,6 +1199,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
     /**
      * Check newsletter email status.
+     *
+     * @param $email
+     * @return mixed|string
      */
     public function checkNlStatus($email)
     {
@@ -1404,11 +1262,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $mail->setSubject($title);
             $lang = $this->getDbData('sendin_config_lang');
             if ($tempName == 'doubleoptin_temp') {
-                $bodyContent = $this->optinDefaultTemplate(strtolower($lang));
+                $bodyContent = $this->configHelper->getOptinDefaultTemplate(strtolower($lang));
             } else if ($tempName == 'sendin_notification') {
-                $bodyContent = $this->sendinDefaultTemplate(strtolower($lang));
+                $bodyContent = $this->configHelper->getSendinDefaultTemplate(strtolower($lang));
             } else if ($tempName == 'sendinsmtp_conf') {
-                $bodyContent = $this->smtpDefaultTemplate(strtolower($lang));
+                $bodyContent = $this->configHelper->getSmtpDefaultTemplate(strtolower($lang));
             }
 
             if (!empty($paramVal)) {
@@ -1433,6 +1291,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     /**
      * @param $remainingSms
      * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \Zend_Mail_Exception
      */
     public function sendNotifySms($remainingSms)
     {
@@ -1559,133 +1418,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     }
 
     /**
-     *  @FIXME use Newsletter Subscriber Collection
-     *  Count all distinct record in customer and newsletter emails.
-     */
-    public function getCustAndNewslCount()
-    {
-        $connection = $this->createDbConnection();
-        $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-        $tblCustomer = $this->tbWithPrefix('customer_entity');
-        $countAllRec = $connection->fetchAll("SELECT COUNT( * ) c
-                    FROM (
-                    SELECT cu.email
-                    FROM " . $tblCustomer . " cu
-                    UNION
-                    SELECT n.subscriber_email
-                    FROM " . $tblNewsletter . " n) x ");
-        return !empty($countAllRec['0']['c']) ? $countAllRec['0']['c'] : 0;
-    }
-
-    /**
-     * @FIXME use Newsletter Subscriber Collection
-     * Fetch all users from the default newsletter table to list
-     * them in the Sendinblue magento module.
-     *
-     * @param $start
-     * @param $perPage
-     * @return array
-     * @throws \Magento\Framework\Exception\LocalizedException
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
-     */
-    public function getNewsletterSubscribe($start, $perPage)
-    {
-        $connection = $this->createDbConnection();
-        $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-        $tblCustomer = $this->tbWithPrefix('customer_entity');
-
-        $customerAddressData = array();
-        $allData = array();
-        $query = "select email from " . $tblCustomer . "
-                union
-                select subscriber_email from " . $tblNewsletter . " limit $start , $perPage";
-
-        if (count($connection->fetchAll($query)) > 0) {
-            foreach ($connection->fetchAll($query) as $emailValue) {
-                $email = !empty($emailValue['email']) ? $emailValue['email'] : '';
-                $customerAddressData['email'] = $email;
-                $customerAddressData['SMS'] = '';
-
-                $storeId = $this->_storeManagerInterface->getStore()->getId();
-                $this->_customers->setWebsiteId($storeId);
-                $dataCust = $this->_customers->loadByEmail($email);
-                $rowData = $dataCust->getData();
-
-                $customerId = !empty($rowData['entity_id']) ? $rowData['entity_id'] : '';
-                if (!empty($customerId)) {
-                    $billingId = !empty($rowData['default_billing']) ? $rowData['default_billing'] : '';
-                    /**
-                     * @FIXME use repository instead
-                     */
-                    $collectionAddress = $this->customerAddress->load($billingId);
-                    $customerAddress = array();
-                    if (!empty($billingId)) {
-                        $telephoneNumber = $collectionAddress->getTelephone();
-                        $countryID = $collectionAddress->getCountry();
-                        if (!empty($telephoneNumber) && !empty($countryID)) {
-                            $countryCode = $this->getCountryCode($countryID);
-                            $customerAddressData['SMS'] = $this->checkMobileNumber($telephoneNumber, $countryCode);
-                        }
-                    }
-                    $customerAddressData['client'] = 1;
-                } else {
-                    $customerAddressData['client'] = 0;
-                }
-
-                $customerSubscribe = $this->checkNlStatus($email);
-
-                $subsStatus = !empty($customerSubscribe) ? $customerSubscribe : 0;
-                if ($subsStatus == 1) {
-                    $customerAddressData['subscriber_status'] = 1;
-                } else {
-                    $customerAddressData['subscriber_status'] = 0;
-                }
-                $allData[] = $customerAddressData;
-            }
-        }
-        return $allData;
-    }
-
-    /**
-     * @FIXME use Newsletter Subscriber Collection
-     * Fetch total count subscribe users from the default newsletter table to list
-     * them in the Sendinblue magento module.
-     */
-    public function getNewsletterSubscribeCount()
-    {
-        $connection = $this->createDbConnection();
-        $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-        $resultSubscriber = $connection->fetchAll('SELECT COUNT(*) as total FROM `' . $tblNewsletter . '` WHERE subscriber_status = 1');
-
-        $subscriberEmail = !empty($resultSubscriber[0]['total']) ? $resultSubscriber[0]['total'] : 0;
-        return $subscriberEmail;
-    }
-
-    /**
-     * @FIXME use Newsletter Subscriber Collection
-     * Fetch total count unsubscribe users from the default newsletter table to list
-     * them in the Sendinblue magento module.
-     */
-    public function getNewsletterUnSubscribeCount()
-    {
-        $connection = $this->createDbConnection();
-        $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-        $tblcustomer = $this->tbWithPrefix('customer_entity');
-        $countCust = $connection->fetchAll("SELECT COUNT(email) as email FROM $tblcustomer");
-        $custAll = !empty($countCust['0']['email']) ? $countCust['0']['email'] : 0;
-        $querySecond = $connection->fetchAll("SELECT COUNT( subscriber_email ) as email
-                        FROM " . $tblNewsletter . " where subscriber_status = 1 AND customer_id > 0");
-
-        $querythird = $connection->fetchAll("SELECT COUNT( subscriber_email ) as email
-                        FROM " . $tblNewsletter . " where subscriber_status != 1 AND customer_id = 0");
-
-        $allsubsUser = !empty($querySecond['0']['email']) ? $querySecond['0']['email'] : 0;
-        $UnsNl = !empty($querythird['0']['email']) ? $querythird['0']['email'] : 0;
-        return $totalUns = ($custAll + $UnsNl) - $allsubsUser;
-    }
-
-
-    /**
      * check port 587 open or not, for using Sendinblue smtp service.
      */
     public function checkPortStatus()
@@ -1708,46 +1440,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function tbWithPrefix($tableName)
     {
         return $this->_getTb->getTable($tableName);
-    }
-
-    /**
-     * @FIXME move templates in core_config_data table
-     * @param $lang
-     * @return string
-     */
-    public function optinDefaultTemplate($lang)
-    {
-        if ($lang == "fr") {
-            return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head> <meta content="text/html; charset=utf-8" http-equiv="Content-Type"> <title>{title}</title> </head> <body style="font-family: Arial, Helvetica, sans-serif;font-size: 12px;color: #222;"> <div class="moz-forward-container"> <br><table cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#ffffff"> <tbody> <tr style="border-collapse:collapse;"> <td align="center" style="border-collapse:collapse;"> <table cellspacing="0" cellpadding="0" border="0" width="570"> <tbody> <tr> <td height="20" style="line-height:0; font-size:0;"><img width="0" height="0" alt="{shop_name}" src="{shop_logo}"></td></tr></tbody> </table><table cellpadding="0" cellspacing="0" border="0" width="540"><tbody><tr><td style="line-height:0; font-size:0;" height="20"><div style="font-family:arial,sans-serif; color:#61a6f3; font-size:20px; font-weight:bold; line-height:28px;">Confirmez votre inscription</div></td></tr></tbody></table><table cellspacing="0" cellpadding="0" border="0" width="540"><tbody><tr><td align="left"><div style="font-family:arial,sans-serif; font-size:14px; margin:0; line-height:24px; color:#555555;"><br>Voulez vous recevoir les newsletters de{site_name}?<br><br><a href="{double_optin}" style="color:#ffffff;display:inline-block;font-family:Arial,sans-serif;width:auto;white-space:nowrap;min-height:32px;margin:5px 5px 0 0;padding:0 22px;text-decoration:none;text-align:center;font-weight:bold;font-style:normal;font-size:15px;line-height:32px;border:0;border-radius:4px;vertical-align:top;background-color:#3276b1" target="_blank"><span style="display:inline;font-family:Arial,sans-serif;text-decoration:none;font-weight:bold;font-style:normal;font-size:15px;line-height:32px;border:none;background-color:#3276b1;color:#ffffff">Oui, je confirme mon inscription</span></a><br><br>Si vous recevez cet email par erreur, vous pouvez simplement le supprimer. Vous ne serez pas inscrit à la newsletter si vous ne cliquez pas sur le lien de confirmation ci-dessus.<br><br>{site_name}</div></td></tr></tbody></table> </td></tr></tbody> </table> <br></div></body></html>';
-        }
-        return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head> <meta content="text/html; charset=utf-8" http-equiv="Content-Type"> <title>{title}</title> </head> <body style="font-family: Arial, Helvetica, sans-serif;font-size: 12px;color: #222;"> <div class="moz-forward-container"> <br><table cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#ffffff"> <tbody> <tr style="border-collapse:collapse;"> <td align="center" style="border-collapse:collapse;"> <table cellspacing="0" cellpadding="0" border="0" width="570"> <tbody> <tr> <td height="20" style="line-height:0; font-size:0;"><img width="0" height="0" alt="{shop_name}" src="{shop_logo}"></td></tr></tbody> </table><table cellpadding="0" cellspacing="0" border="0" width="540"><tbody><tr><td style="line-height:0; font-size:0;" height="20"><div style="font-family:arial,sans-serif; color:#61a6f3; font-size:20px; font-weight:bold; line-height:28px;">Please confirm your subscription</div></td></tr></tbody></table><table cellspacing="0" cellpadding="0" border="0" width="540"><tbody><tr><td align="left"><div style="font-family:arial,sans-serif; font-size:14px; margin:0; line-height:24px; color:#555555;"><br>Do you want to receive newsletters from{site_name}?<br><br><a href="{double_optin}" style="color:#ffffff;display:inline-block;font-family:Arial,sans-serif;width:auto;white-space:nowrap;min-height:32px;margin:5px 5px 0 0;padding:0 22px;text-decoration:none;text-align:center;font-weight:bold;font-style:normal;font-size:15px;line-height:32px;border:0;border-radius:4px;vertical-align:top;background-color:#3276b1" target="_blank"><span style="display:inline;font-family:Arial,sans-serif;text-decoration:none;font-weight:bold;font-style:normal;font-size:15px;line-height:32px;border:none;background-color:#3276b1;color:#ffffff">Yes, subscribe me to this list.</span></a><br><br>If you received this email by mistake, simply delete it. You will not be subscribed to this list if you do not click the confirmation link above.<br><br>{site_name}</div></td></tr></tbody></table> </td></tr></tbody> </table> <br></div></body></html>';
-
-    }
-
-    /**
-     * @FIXME move templates in core_config_data table
-     * @param $lang
-     * @return string
-     */
-    public function sendinDefaultTemplate($lang)
-    {
-        if ($lang == "fr") {
-            return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>[Sendinblue] Alerte: Vos crédits SMS seront bientôt épuisés</title></head><body style="font-family: Arial, Helvetica, sans-serif;font-size: 12px;color: #222;"><div class="moz-forward-container"><br><table style="background-color:#ffffff" width="100%" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr style="border-collapse:collapse;"> <td style="border-collapse:collapse;" align="center"> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td valign="middle" align="left"> <h1 style="margin:0;color:#2f8bee;font-family:arial,sans-serif"><img src="http://img.sendinblue.com/14406/images/529f2339c6ece.png" alt="Sendinblue"></h1> </td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td align="left"> <div style="font-family:arial,sans-serif; color:#2f8bee; font-size:18px; font-weight:bold; margin:0 0 10px 0;">Bonjour,<br/><br/>Cet email est envoyé pour vous informer que vous n\'avez plus assez de crédits pour envoyer des SMS à partir de votre site Magento{site_name}.<br/><br/>Actuellement, vous avez{present_credit}crédits SMS.<br/><br/>Cordialement,<br/>L\'équipe de Sendinblue<br/> </div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr><tr> <td valign="top" width="200" align="left"> <div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <strong style="color:#2f8bee;">Sendinblue</strong></div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 59 rue Beaubourg</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 75003 Paris - France</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> T&eacute;l : 0899 25 30 61</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <a moz-do-not-send="true" href="http://www.sendinblue.com" style="color:#2f8bee;" target="_blank">www.sendinblue.com</a></div></td><td align="right" valign="top"><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:20px; color:#7e7e7e;"> <a href="http://www.facebook.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Facebook" src="https://my.sendinblue.com/public/upload/14406/images/523693143fe88.gif" style="border:none;"> </a> <a href="https://twitter.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Twitter" src="https://my.sendinblue.com/public/upload/14406/images/5236931746c01.gif" style="border:none;"> </a> <a href="http://www.linkedin.com/company/mailin" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Linkedin" src="https://my.sendinblue.com/public/upload/14406/images/5236931ad253b.gif" style="border:none;"> </a> <a href="http://sendinblue.tumblr.com/" style="color:#2f8bee; text-decoration:none;" target="_blank">Blog</a></div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> &copy; 2014-2015 Sendinblue, tous droits r&eacute;serv&eacute;s. </div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> Ceci est un message automatique g&eacute;n&eacute;r&eacute; par Sendinblue. </div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> Ne pas y r&eacute;pondre, vous ne recevriez aucune r&eacute;ponse. </div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"><a href="https://www.sendinblue.com/legal/antispampolicy" style="color:#7e7e7e;" target="_blank">Politique anti-spam &amp; emailing</a> | <a href="https://www.sendinblue.com/legal/generalterms" style="color:#7e7e7e;" target="_blank">Conditions g&eacute;n&eacute;rales de ventes</a></div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> </td></tr></tbody> </table> <br></div></body></html>';
-        }
-        return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>[Sendinblue] Alert: You do not have enough credits SMS</title></head><body style="font-family: Arial, Helvetica, sans-serif;font-size: 12px;color: #222;"><div class="moz-forward-container"><br><table style="background-color:#ffffff" width="100%" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr style="border-collapse:collapse;"> <td style="border-collapse:collapse;" align="center"> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td valign="middle" align="left"> <h1 style="margin:0;color:#2f8bee;font-family:arial,sans-serif"><img src="http://img.sendinblue.com/14406/images/529f2339c6ece.png" alt="Sendinblue"></h1> </td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td align="left"> <div style="font-family:arial,sans-serif; color:#2f8bee; font-size:18px; font-weight:bold; margin:0 0 10px 0;">Hello,<br/><br/>This email is sent to inform you that you do not have enough credits to send SMS from your Magento website{site_name}.<br/><br/>Actually, you have{present_credit}credits sms.<br/><br/>Regards,<br/>Sendinblue team<br/> </div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr><tr> <td align="left" valign="top" width="200"> <div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <strong style="color:#2f8bee;">Sendinblue</strong> </div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 59 rue Beaubourg</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 75003 Paris - France</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> Tél : 0899 25 30 61</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <a moz-do-not-send="true" href="http://www.sendinblue.com" style="color:#2f8bee;" target="_blank">www.sendinblue.com</a> </div></td><td align="right" valign="top"><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:20px; color:#7e7e7e;"> <a href="http://www.facebook.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Facebook" src="https://my.sendinblue.com/public/upload/14406/images/523693143fe88.gif" style="border:none;"> </a> <a href="https://twitter.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Twitter" src="https://my.sendinblue.com/public/upload/14406/images/5236931746c01.gif" style="border:none;"> </a> <a href="http://www.linkedin.com/company/mailin" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Linkedin" src="https://my.sendinblue.com/public/upload/14406/images/5236931ad253b.gif" style="border:none;"> </a> <a href="http://sendinblue.tumblr.com/" style="color:#2f8bee; text-decoration:none;" target="_blank">Blog</a></div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> © 2014-2015 Sendinblue, all rights reserved.</div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;">This is an automatic message generated by Sendinblue.</div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;">Do not respond, you would not receive any answer.</div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"><a href="https://www.sendinblue.com/legal/antispampolicy" style="color:#7e7e7e;" target="_blank">Anti-spam & emailing policy</a> | <a href="https://www.sendinblue.com/legal/generalterms" style="color:#7e7e7e;" target="_blank">General Terms and Conditions</a></div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> </td></tr></tbody> </table> <br></div></body></html>';
-    }
-
-    /**
-     * @FIXME move templates in core_config_data table
-     * @param $lang
-     * @return string
-     */
-    public function smtpDefaultTemplate($lang)
-    {
-        if ($lang == "fr") {
-            return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>[Sendinblue SMTP] e-mail de test</title></head><body style="font-family: Arial, Helvetica, sans-serif;font-size: 12px;color: #222;"><div class="moz-forward-container"><br><table style="background-color:#ffffff" width="100%" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr style="border-collapse:collapse;"> <td style="border-collapse:collapse;" align="center"> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td valign="middle" align="left"> <h1 style="margin:0;color:#2f8bee;font-family:arial,sans-serif"><img src="http://img.sendinblue.com/14406/images/529f2339c6ece.png" alt="Sendinblue"></h1> </td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td align="left"> <div style="font-family:arial,sans-serif; color:#2f8bee; font-size:18px; font-weight:bold; margin:0 0 10px 0;">Cet e-mail a été envoyé via Sendinblue SMTP. <br/> Félicitations, la fonctionnalité Sendinblue SMTP est bien configurée. </div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td align="right"> <div style="font-family:arial,sans-serif; font-size:14px; color:#2f8bee; margin:0; font-weight:bold; line-height:18px;"> L\'&eacute;quipe de Sendinblue</div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr><tr> <td valign="top" width="200" align="left"> <div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <strong style="color:#2f8bee;">Sendinblue</strong></div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 59 rue Beaubourg</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 75003 Paris - France</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> T&eacute;l : 0899 25 30 61</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <a moz-do-not-send="true" href="http://www.sendinblue.com" style="color:#2f8bee;" target="_blank">www.sendinblue.com</a></div></td><td align="right" valign="top"><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:20px; color:#7e7e7e;"> <a href="http://www.facebook.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Facebook" src="https://my.sendinblue.com/public/upload/14406/images/523693143fe88.gif" style="border:none;"> </a> <a href="https://twitter.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Twitter" src="https://my.sendinblue.com/public/upload/14406/images/5236931746c01.gif" style="border:none;"> </a> <a href="http://www.linkedin.com/company/mailin" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Linkedin" src="https://my.sendinblue.com/public/upload/14406/images/5236931ad253b.gif" style="border:none;"> </a> <a href="http://sendinblue.tumblr.com/" style="color:#2f8bee; text-decoration:none;" target="_blank">Blog</a></div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> &copy; 2014-2015 Sendinblue, tous droits r&eacute;serv&eacute;s. </div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> Ceci est un message automatique g&eacute;n&eacute;r&eacute; par Sendinblue. </div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> Ne pas y r&eacute;pondre, vous ne recevriez aucune r&eacute;ponse. </div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"><a href="https://www.sendinblue.com/legal/antispampolicy" style="color:#7e7e7e;" target="_blank">Politique anti-spam &amp; emailing</a> | <a href="https://www.sendinblue.com/legal/generalterms" style="color:#7e7e7e;" target="_blank">Conditions g&eacute;n&eacute;rales de ventes</a></div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> </td></tr></tbody> </table> <br></div></body></html>';
-        }
-        return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>[Sendinblue SMTP] test email</title></head><body style="font-family: Arial, Helvetica, sans-serif;font-size: 12px;color: #222;"><div class="moz-forward-container"><br><table style="background-color:#ffffff" width="100%" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr style="border-collapse:collapse;"> <td style="border-collapse:collapse;" align="center"> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td valign="middle" align="left"> <h1 style="margin:0;color:#2f8bee;font-family:arial,sans-serif"><img src="http://img.sendinblue.com/14406/images/529f2339c6ece.png" alt="Sendinblue"></h1> </td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td align="left"> <div style="font-family:arial,sans-serif; color:#2f8bee; font-size:18px; font-weight:bold; margin:0 0 10px 0;">This email has been sent using Sendinblue SMTP. <br/> Congratulations, your Sendinblue SMTP module has been set up well. </div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td align="right"> <div style="font-family:arial,sans-serif; font-size:14px; color:#2f8bee; margin:0; font-weight:bold; line-height:18px;">Sendinblue Team</div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr></tbody> </table> <table width="540" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="10">&nbsp;</td></tr><tr> <td valign="top" width="200" align="left"> <div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <strong style="color:#2f8bee;">Sendinblue</strong></div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 59 rue Beaubourg</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> 75003 Paris - France</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> T&eacute;l : 0899 25 30 61</div><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:16px; color:#7e7e7e;"> <a moz-do-not-send="true" href="http://www.sendinblue.com" style="color:#2f8bee;" target="_blank">www.sendinblue.com</a></div></td><td align="right" valign="top"><div style="font-family:arial,sans-serif; font-size:12px; margin:0; line-height:20px; color:#7e7e7e;"> <a href="http://www.facebook.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Facebook" src="https://my.sendinblue.com/public/upload/14406/images/523693143fe88.gif" style="border:none;"> </a> <a href="https://twitter.com/SendinBlue" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Twitter" src="https://my.sendinblue.com/public/upload/14406/images/5236931746c01.gif" style="border:none;"> </a> <a href="http://www.linkedin.com/company/mailin" style="color:#2f8bee; text-decoration:none;" target="_blank"> <img alt="Linkedin" src="https://my.sendinblue.com/public/upload/14406/images/5236931ad253b.gif" style="border:none;"> </a> <a href="http://sendinblue.tumblr.com/" style="color:#2f8bee; text-decoration:none;" target="_blank">Blog</a></div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"> © 2014-2015 Sendinblue, all rights reserved.</div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;">This is an automatic message generated by Sendinblue.</div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;">Do not respond, you wouldn\'t receive any answer.</div><div style="font-family:arial,sans-serif; font-size:10px; margin:0; line-height:14px; color:#7e7e7e;"><a href="https://www.sendinblue.com/legal/antispampolicy" style="color:#7e7e7e;" target="_blank">Anti-spam & emailing policy</a> | <a href="https://www.sendinblue.com/legal/generalterms" style="color:#7e7e7e;" target="_blank">General Terms and Conditions</a></div></td></tr></tbody> </table> <table width="570" border="0" cellpadding="0" cellspacing="0"> <tbody> <tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr><tr> <td style="line-height:0; font-size:0;" height="20">&nbsp;</td></tr></tbody> </table> </td></tr></tbody> </table> <br></div></body></html>';
     }
 
 }

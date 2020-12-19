@@ -2,12 +2,10 @@
 /**
  * @FIXME THIS PHTML MUST BE REFACTORED
  */
-$objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-$dbConfig = $objectManager->get('Magento\Framework\App\Config\ScopeConfigInterface');
 /**
  * @var \Sendinblue\Sendinblue\Model\SendinblueSib $model
  */
-$model = $objectManager->get('Sendinblue\Sendinblue\Model\SendinblueSib');
+$model = $block->getSibModel();
 
 $apiKey = !empty($model->getDbData('api_key')) ? $model->getDbData('api_key') : '';
 $apiKeyV3 = !empty($model->getDbData('api_key_v3')) ? $model->getDbData('api_key_v3') : '';
