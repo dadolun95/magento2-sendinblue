@@ -14,7 +14,7 @@
   
 
 ## Installation Method 1 - Installing using archive
-  * Download [ZIP Archive](https://github.com/dadolun95/module-sendinblue)
+  * Download [ZIP Archive](https://github.com/dadolun95/magento2-sendinblue)
   * Extract files
   * In your Magento 2 root directory create folder app/code/Sendinblue/Sendinblue/
   * Copy files and folders from archive to that folder
@@ -31,14 +31,14 @@ bin/magento setup:upgrade
 ## Installation Method 2 - Installing using composer
   * Update composer repositories:
 ```
-  {
-      "type": "vcs",
-      "url":  "git@github.com:dadolun95/magento2-sendinblue"
-  }
+{
+  "type": "vcs",
+  "url":  "git@github.com:dadolun95/magento2-sendinblue"
+}
 ```
   * Add module with composer:
 ```
-    composer require dadolun95/magento2-sendinblue
+composer require dadolun95/magento2-sendinblue
 ```
   * In command line, using "cd", navigate to your Magento 2 root directory
   * Run commands:
