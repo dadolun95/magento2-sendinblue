@@ -8,5 +8,10 @@
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Module/etc/module.xsd">
-    <module name="Sendinblue_Sendinblue" setup_version="2.2.0"></module>
+    <module name="Sendinblue_Sendinblue" setup_version="2.2.0">
+        <sequence>
+            <module name="Magento_Newsletter" />
+            <module name="MagePlaza_Smtp" />
+        </sequence>
+    </module>
 </config>

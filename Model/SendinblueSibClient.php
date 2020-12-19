@@ -6,31 +6,51 @@
  */
 namespace Sendinblue\Sendinblue\Model;
 
+use \GuzzleHttp\Client as HttpClient;
+use \SendinBlue\Client\Configuration as ClientConfiguration;
+use \SendinBlue\Client\Api\ContactsApi;
+use \SendinBlue\Client\Api\AccountApi;
+use \SendinBlue\Client\Api\AttributesApi;
+use \SendinBlue\Client\Api\TransactionalSMSApi;
+use \SendinBlue\Client\Api\TransactionalEmailsApi;
+use \SendinBlue\Client\Api\SMSCampaignsApi;
+use \SendinBlue\Client\Api\SendersApi;
+use \SendinBlue\Client\Model\RequestContactImport;
+use \SendinBlue\Client\Model\CreateAttribute;
+use \SendinBlue\Client\Model\CreateUpdateFolder;
+use \SendinBlue\Client\Model\CreateContact;
+use \SendinBlue\Client\Model\SendTransacSms;
+use \SendinBlue\Client\Model\UpdateContact;
+use \SendinBlue\Client\Model\SendSmtpEmail;
+use \SendinBlue\Client\Model\CreateSmsCampaign;
+
 /**
  * Class SendinblueSibClient
  * @package Sendinblue\Sendinblue\Model
  */
 class SendinblueSibClient
 {
-    const API_BASE_URL = 'https://api.sendinblue.com/v3';
-    const HTTP_METHOD_GET = 'GET';
-    const HTTP_METHOD_POST = 'POST';
-    const HTTP_METHOD_PUT = 'PUT';
-    const HTTP_METHOD_DELETE = 'DELETE';
     const RESPONSE_CODE_OK = 200;
     const RESPONSE_CODE_CREATED = 201;
     const RESPONSE_CODE_ACCEPTED = 202;
-    const RESPONSE_CODE_UPDATED = 204;
 
     private $apiKey;
     private $lastResponseCode;
+    private $config;
 
     /**
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetAccount
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getAccount()
     {
-        return $this->get('/account');
+        $apiInstance = new AccountApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getAccountWithHttpInfo();
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
@@ -40,40 +60,66 @@ class SendinblueSibClient
     public function setApiKey($key)
     {
         $this->apiKey = trim($key);
+        $this->config = ClientConfiguration::getDefaultConfiguration()
+            ->setApiKey('api-key', $this->apiKey);
         return $this;
     }
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetLists
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getLists($data)
     {
-        return $this->get("/contacts/lists", $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getLists($data['limit'], $data['offset']);
+        $this->lastResponseCode = $result[1];
+        $result = (array)$result[0];
     }
 
 
     /**
+     * @param $folder
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetFolderLists
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getListsInFolder($folder, $data)
     {
-        return $this->get("/contacts/folders/" . $folder . "/lists", $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getFolderLists($folder, $data['limit'], $data['offest']);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\CreatedProcessId
+     * @throws \SendinBlue\Client\ApiException
      */
     public function importUsers($data)
     {
-        return $this->post("/contacts/import", $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $requestContactImport = new RequestContactImport($data);
+        $result = $apiInstance->importContacts($requestContactImport);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
-     * @param $data
-     * @return mixed
+     * @param int $folder
+     * @return array
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getAllLists($folder = 0)
     {
@@ -86,43 +132,68 @@ class SendinblueSibClient
             } else {
                 $list_data = $this->getLists(array('limit' => $limit, 'offset' => $offset));
             }
-            if (!isset($list_data["lists"])) {
+            if ($list_data->getLists()) {
                 $list_data = array("lists" => array(), "count" => 0);
             }
-            $lists["lists"] = array_merge($lists["lists"], $list_data["lists"]);
+            $lists["lists"] = array_merge($lists["lists"], $list_data->getLists());
             $offset += 50;
-        } while (count($lists["lists"]) < $list_data["count"]);
-        $lists["count"] = $list_data["count"];
+        } while (count($lists["lists"]) < $list_data->getCount());
+        $lists["count"] = $list_data->getCounzt();
         return $lists;
     }
 
-    /*
-     * @return mixed
+    /**
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getAttributes()
     {
-        return $this->get("/contacts/attributes");
+        $apiInstance = new AttributesApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getAttributes();
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
-     * @param $type ,$name,$data
-     * @return mixed
+     * @param $type
+     * @param $name
+     * @param $data
+     * @return array
+     * @throws \SendinBlue\Client\ApiException
      */
     public function createAttribute($type, $name, $data)
     {
-        return $this->post("/contacts/attributes/" . $type . "/" . $name, $data);
+        $apiInstance = new AttributesApi(
+            new HttpClient(),
+            $this->config
+        );
+        $attributeData = $createAttribute = new CreateAttribute($data);
+        $result = $apiInstance->createAttributeWithHttpInfo($type, $name, $attributeData);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
-     * @return mixed
+     * @param $data
+     * @return \SendinBlue\Client\Model\GetFolders
+     * @throws \SendinBlue\Client\ApiException
      */
-    public function getFolders()
+    public function getFolders($data)
     {
-        return $this->get("/contacts/folders");
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getFolders($data['limit'], $data['offset']);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @return array
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getFoldersAll()
     {
@@ -140,90 +211,159 @@ class SendinblueSibClient
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\CreateModel
+     * @throws \SendinBlue\Client\ApiException
      */
     public function createFolder($data)
     {
-        return $this->post("/contacts/folders", $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $createFolder = new CreateUpdateFolder($data);
+        $result = $apiInstance->createFolder($createFolder);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetLists
+     * @throws \SendinBlue\Client\ApiException
      */
     public function createList($data)
     {
-        return $this->post("/contacts/lists", $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getLists($data['limit'], $data['offset']);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @param $email
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetExtendedContactDetails
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getUser($email)
     {
-        return $this->get("/contacts/" . urlencode($email));
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getContactInfo(urlencode($email));
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\CreateUpdateContactModel
+     * @throws \SendinBlue\Client\ApiException
      */
     public function createUser($data)
     {
-        return $this->post("/contacts", $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $createContact = new CreateContact($data);
+        $result = $apiInstance->createContact($createContact);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
-     * @param $email ,$data
-     * @return mixed
+     * @param $email
+     * @param $data
+     * @return array
+     * @throws \SendinBlue\Client\ApiException
      */
     public function updateUser($email, $data)
     {
-        return $this->put("/contacts/" . urlencode($email), $data);
+        $apiInstance = new ContactsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $updateContact = new UpdateContact($data);
+        $result = $apiInstance->updateContactWithHttpInfo($email, $updateContact);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
+    /**
+     * @param $data
+     * @return \SendinBlue\Client\Model\SendSms
+     * @throws \SendinBlue\Client\ApiException
+     */
     public function sendSms($data)
     {
-        return $this->post('/transactionalSMS/sms', $data);
+        $apiInstance = new TransactionalSMSApi(
+            new HttpClient(),
+            $this->config
+        );
+        $sendTransacSms = new SendTransacSms();
+        $result = $apiInstance->sendTransacSms($sendTransacSms);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @param $data
-     * @return mixed
-     */
-    public function setPartner($data)
-    {
-        return $this->post('/account/partner', $data);
-    }
-
-    /**
-     * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\CreateSmtpEmail
+     * @throws \SendinBlue\Client\ApiException
      */
     public function sendTransactionalTemplate($data)
     {
-        return $this->post("/smtp/email", $data);
+        $apiInstance = new TransactionalEmailsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $sendSmtpEmail = new SendSmtpEmail($data);
+        $result = $apiInstance->sendTransacEmail($sendSmtpEmail);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
+    /**
+     * @param $data
+     * @return \SendinBlue\Client\Model\CreateModel
+     * @throws \SendinBlue\Client\ApiException
+     */
     public function createSmsCampaign($data)
     {
-        return $this->post('/smsCampaigns', $data);
+        $apiInstance = new SMSCampaignsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $createSmsCampaign = new CreateSmsCampaign($data);
+        $result = $apiInstance->createSmsCampaign($createSmsCampaign);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetSmtpTemplates
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getEmailTemplates($data)
     {
-        return $this->get("/smtp/templates", $data);
+        $apiInstance = new TransactionalEmailsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getSmtpTemplates($data['templateStatus'], $data['limit'], $data['offset']);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
-     * @param $data
-     * @return mixed
+     * @return array
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getAllEmailTemplates()
     {
@@ -244,115 +384,50 @@ class SendinblueSibClient
 
     /**
      * @param $id
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetSmtpTemplateOverview
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getTemplateById($id)
     {
-        return $this->get("/smtp/templates/" . $id);
+        $apiInstance = new TransactionalEmailsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getSmtpTemplate($id);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
      * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\CreateSmtpEmail
+     * @throws \SendinBlue\Client\ApiException
      */
     public function sendEmail($data)
     {
-        return $this->post("/smtp/email", $data);
+        $apiInstance = new TransactionalEmailsApi(
+            new HttpClient(),
+            $this->config
+        );
+        $sendSmtpEmail = new SendSmtpEmail($data);
+        $result = $apiInstance->sendTransacEmail($sendSmtpEmail);
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**
-     * @param $data
-     * @return mixed
+     * @return \SendinBlue\Client\Model\GetSendersList
+     * @throws \SendinBlue\Client\ApiException
      */
     public function getSenders()
     {
-        return $this->get("/senders");
-    }
-
-    /**
-     * @param $endpoint
-     * @param array $parameters
-     * @return mixed
-     */
-    public function get($endpoint, $parameters = [])
-    {
-        if ($parameters) {
-            $endpoint .= '?' . http_build_query($parameters);
-        }
-        return $this->makeHttpRequest(self::HTTP_METHOD_GET, $endpoint);
-    }
-
-    /**
-     * @param $endpoint
-     * @param array $data
-     * @return mixed
-     */
-    public function post($endpoint, $data = [])
-    {
-        return $this->makeHttpRequest(self::HTTP_METHOD_POST, $endpoint, $data);
-    }
-
-    /**
-     * @param $endpoint
-     * @param array $data
-     * @return mixed
-     */
-    public function put($endpoint, $data = [])
-    {
-        return $this->makeHttpRequest(self::HTTP_METHOD_PUT, $endpoint, $data);
-    }
-
-    /**
-     * @param $method
-     * @param $endpoint
-     * @param array $body
-     * @return mixed
-     */
-    private function makeHttpRequest($method, $endpoint, $body = [])
-    {
-        $url = self::API_BASE_URL . $endpoint;
-        $this->lastResponseCode = "";
-        $args = [
-            'method' => $method,
-            'headers' => [
-                'api-key' => $this->apiKey,
-                'Content-Type' => 'application/json'
-            ],
-        ];
-
-        $curl = curl_init();
-
-        $params = [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => [
-                "content-type: application/json",
-                "accept: application/json",
-                "api-key: " . $this->apiKey
-            ]
-        ];
-
-        curl_setopt_array($curl, $params);
-
-        if (!empty($body)) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($body));
-        }
-
-        $response = curl_exec($curl);
-        $err = curl_error($curl);
-        $this->lastResponseCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-
-        if ($err) {
-            return $err;
-        }
-
-        return json_decode($response, true);
+        $apiInstance = new SendersApi(
+            new HttpClient(),
+            $this->config
+        );
+        $result = $apiInstance->getSenders();
+        $this->lastResponseCode = $result[1];
+        return $result[0];
     }
 
     /**

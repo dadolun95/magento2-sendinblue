@@ -308,10 +308,11 @@ class Ajax extends \Magento\Backend\App\Action
         }
         $model = $this->sibObject();
         $trackResp = $model->trackingSmtp();
-        if (!empty($trackResp['marketingAutomation']) && $trackResp['marketingAutomation']['enabled'] == 1) {
+        $marketingAutomation = $trackResp->getMarketingAutomation();
+        if ($marketingAutomation && $marketingAutomation->getEnabled() == 1) {
             $model->updateDbData('sib_track_status', $post['sib_track_status']);
-            $model->updateDbData('sib_automation_key', $trackResp['marketingAutomation']['key']);
-            $model->updateDbData('sib_automation_enable', $trackResp['marketingAutomation']['enabled']);
+            $model->updateDbData('sib_automation_key', $marketingAutomation->getKey());
+            $model->updateDbData('sib_automation_enable', $marketingAutomation->getEnabled());
             $msgVal = __('Sendiblue configuration setting Successfully updated');
             $this->getResponse()->setHeader('Content-type', 'application/text');
             $this->getResponse()->setBody($msgVal);
@@ -336,14 +337,15 @@ class Ajax extends \Magento\Backend\App\Action
         if (empty($pass_data) || !$dataResp) {
             $model->updateDbData('api_smtp_status', 0);
             $msgVal = __('Your SMTP account is not activated and therefore you can\'t use Sendinblue SMTP. For more informations, please contact our support to: contact@sendinblue.com');
-        } else if ($dataResp['relay']['enabled']) {
+        } else if ($dataResp->getRelay()->getEnabled()) {
+            $relay = $dataResp->getRelay();
             $model->updateDbData('api_smtp_status', $post['smtps_tatus']);
             $model->updateDbData('relay_data_status', 'enabled');
             $model->updateDbData('smtp_authentication', 'crammd5');
-            $model->updateDbData('smtp_username', $dataResp['relay']['data']['userName']);
+            $model->updateDbData('smtp_username',$relay->getData()->getUserName());
             $model->updateDbData('smtp_password', $pass_data);
-            $model->updateDbData('smtp_host', $dataResp['relay']['data']['relay']);
-            $model->updateDbData('smtp_port', $dataResp['relay']['data']['port']);
+            $model->updateDbData('smtp_host', $relay->getData()->getRelay());
+            $model->updateDbData('smtp_port', $relay->getData()->getPort());
             $model->updateDbData('smtp_tls', 'tls');
             $model->updateDbData('smtp_option', 'smtp');
             $msgVal = __('Your setting has been successfully saved');

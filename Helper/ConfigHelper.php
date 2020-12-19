@@ -17,22 +17,46 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
  */
 class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
 {
+    const SMTP_CONFIG_MAPPING = [
+        'api_smtp_status' => 'smtp/general/enabled',
+        'smtp_authentication' => 'smtp/configuration_option/authentication',
+        'smtp_username' => 'smtp/configuration_option/username',
+        'smtp_password' => 'smtp/configuration_option/password',
+        'smtp_host' => 'smtp/configuration_option/host',
+        'smtp_port' => 'smtp/configuration_option/port',
+        'smtp_tls' => 'smtp/configuration_option/protocol'
+    ];
+
     /**
      * @var ConfigInterface
      */
     protected $resourceConfig;
+    /**
+     * @var \Mageplaza\Smtp\Model\Config\Source\Protocol
+     */
+    protected $smtpProtocols;
+    /**
+     * @var \Mageplaza\Smtp\Model\Config\Source\Authentication
+     */
+    protected $smtpAuthentications;
 
     /**
      * ConfigHelper constructor.
-     * @param ConfigInterface resourceConfig
+     * @param ConfigInterface $resourceConfig
+     * @param \Mageplaza\Smtp\Model\Config\Source\Protocol $smtpProtocols
+     * @param \Mageplaza\Smtp\Model\Config\Source\Authentication $smtpAuthentications
      * @param Context $context
      */
     public function __construct(
         ConfigInterface $resourceConfig,
+        \Mageplaza\Smtp\Model\Config\Source\Protocol $smtpProtocols,
+        \Mageplaza\Smtp\Model\Config\Source\Authentication $smtpAuthentications,
         Context $context
     )
     {
         $this->resourceConfig = $resourceConfig;
+        $this->smtpProtocols = $smtpProtocols;
+        $this->smtpAuthentications = $smtpAuthentications;
         parent::__construct($context);
     }
 
@@ -67,6 +91,21 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
      */
     public function updateData($key, $value) {
         $this->resourceConfig->saveConfig('sendinblue/' . $key, $value, ScopeConfigInterface::SCOPE_TYPE_DEFAULT, \Magento\Store\Model\Store::DEFAULT_STORE_ID);
+        if (strpos($key, 'smtp')) {
+            $this->updateSmtpData($key, $value);
+        }
+    }
+
+    /**
+     * @param $key
+     * @param $value
+     */
+    protected function updateSmtpData($key, $value) {
+        $configMapping = self::SMTP_CONFIG_MAPPING;
+        $smtpConfigPath = $configMapping[$key];
+        if (is_string($smtpConfigPath)) {
+            $this->resourceConfig->saveConfig($smtpConfigPath, $value, ScopeConfigInterface::SCOPE_TYPE_DEFAULT, \Magento\Store\Model\Store::DEFAULT_STORE_ID);
+        }
     }
 
     /**
