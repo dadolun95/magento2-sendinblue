@@ -14,7 +14,7 @@
   
 
 ## Installation Method 1 - Installing using archive
-  * Download [ZIP Archive](https://github.com/dadolun95/magento2-sendinblue)
+  * Download [ZIP Archive](https://github.com/dadolun95/magento2-sendinblue/archive/master.zip)
   * Extract files
   * In your Magento 2 root directory create folder app/code/Sendinblue/Sendinblue/
   * Copy files and folders from archive to that folder
