@@ -249,7 +249,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
     {
         return array(
             array("name" => "MAGENTO_CA_LAST_30DAYS", "category" => "global", "value" => "SUM[MAGENTO_LAST_30_DAYS_CA]"),
-            array("name" => "MAGENTO_CA_TOTAL", "category" => "global", "value" => "SUM[ORDER_USER]"),
+            array("name" => "MAGENTO_CA_TOTAL", "category" => "global", "value" => "SUM[MAGENTO_CA_USER]"),
             array("name" => "MAGENTO_ORDERS_COUNT", "category" => "global", "value" => "SUM[MAGENTO_ORDER_TOTAL]")
         );
     }

@@ -10,7 +10,7 @@ namespace Sendinblue\Sendinblue\Model;
 use Magento\Backend\Model\Auth\Session as BackendAuthSession;
 use Magento\Customer\Model\Address as CustomerAddress;
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerCollectionFactory;
-use Magento\Sales\Model\OrderFactory;
+use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
 
 /**
@@ -73,9 +73,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     protected $customerAddress;
     /**
-     * @var OrderFactory
+     * @var OrderCollectionFactory
      */
-    protected $orderFactory;
+    protected $orderCollectionFactory;
     /**
      * @var ConfigHelper
      */
@@ -119,7 +119,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param MmailinFactory $mailingFactory
      * @param SendinblueSibClientFactory $sendinblueSibClientFactory
      * @param CustomerAddress $customerAddress
-     * @param OrderFactory $orderFactory
+     * @param OrderCollectionFactory $orderCollectionFactory
      * @param ConfigHelper $configHelper
      */
     public function __construct(
@@ -139,7 +139,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         MmailinFactory $mailingFactory,
         SendinblueSibClientFactory $sendinblueSibClientFactory,
         CustomerAddress $customerAddress,
-        OrderFactory $orderFactory,
+        OrderCollectionFactory $orderCollectionFactory,
         ConfigHelper $configHelper
     )
     {
@@ -160,7 +160,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $this->mailingFactory = $mailingFactory;
         $this->sendinblueSibClientFactory = $sendinblueSibClientFactory;
         $this->customerAddress = $customerAddress;
-        $this->orderFactory = $orderFactory;
+        $this->orderCollectionFactory = $orderCollectionFactory;
         $this->configHelper = $configHelper;
         /**
          * To create Api v3 by v2. When someone update our plugin
@@ -366,56 +366,62 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function createAttributesName($key, $config = "")
     {
-        $required_attr["normal"] = $this->configHelper->normalizeSubscriptionAttributes($config);
-        $required_attr["calculated"] = $this->configHelper->getCalculatedSubscriptionAttributes();
-        $required_attr["global"] = $this->configHelper->getGlobalSubscriptionAttributes();
-        $required_attr["transactional"] = $this->configHelper->getTransactionalSubscriptionAttributes();
+        $requiredAttr["normal"] = $this->configHelper->normalizeSubscriptionAttributes($config);
+        $requiredAttr["calculated"] = $this->configHelper->getCalculatedSubscriptionAttributes();
+        $requiredAttr["global"] = $this->configHelper->getGlobalSubscriptionAttributes();
+        $requiredAttr["transactional"] = $this->configHelper->getTransactionalSubscriptionAttributes();
 
         /**
          * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
          */
         $mailin = $this->createObjSibClient($key);
-        $attr_list = $mailin->getAttributes();
-        $attr_exist = array();
+        /**
+         * @var \SendinBlue\Client\Model\GetAttributes $attr_list
+         */
+        $attrList = $mailin->getAttributes();
+        $attrExist = array();
 
-        if (isset($attr_list["attributes"])) {
-            foreach ($attr_list["attributes"] as $key => $value) {
-                if (!isset($attr_exist[$value["category"]])) {
-                    $attr_exist[$value["category"]] = array();
+        if ($attrList !== null && $attrList->getAttributes()) {
+            foreach ($attrList->getAttributes() as $key => $value) {
+                if (!isset($attrExist[$value->getCategory()])) {
+                    $attrExist[$value->getCategory()] = array();
                 }
-                $attr_exist[$value["category"]][] = $value;
+                $attrExist[$value->getCategory()][] = $value;
             }
         }
 
-        // To find which attribute is not created
-        foreach ($required_attr as $key => $value) {
-            if (isset($attr_exist[$key])) {
-                $temp_name = array_column($attr_exist[$key], 'name');
+        // Find which attribute is not created
+        foreach ($requiredAttr as $key => $value) {
+            if (isset($attrExist[$key])) {
+                $tempName = array();
+                foreach($attrExist[$key] as $attribute) {
+                    $tempName[] = $attribute->getName();
+                }
                 foreach ($value as $key1 => $value1) {
-                    if (in_array($value1["name"], $temp_name)) {
-                        unset($required_attr[$key][$key1]);
+                    if (in_array($value1["name"], $tempName)) {
+                        unset($requiredAttr[$key][$key1]);
                     }
                 }
             }
         }
 
         // To create normal attributes
-        foreach ($required_attr["normal"] as $key => $value) {
+        foreach ($requiredAttr["normal"] as $key => $value) {
             $mailin->createAttribute("normal", $value["name"], array("type" => $value["type"]));
         }
 
         // To create transactional attributes
-        foreach ($required_attr["transactional"] as $key => $value) {
+        foreach ($requiredAttr["transactional"] as $key => $value) {
             $mailin->createAttribute("transactional", $value["name"], array("type" => $value["type"]));
         }
 
         // To create calculated attributes
-        foreach ($required_attr["calculated"] as $key => $value) {
+        foreach ($requiredAttr["calculated"] as $key => $value) {
             $mailin->createAttribute("calculated", $value["name"], array("value" => $value["value"]));
         }
 
         // To create global attributes
-        foreach ($required_attr["global"] as $key => $value) {
+        foreach ($requiredAttr["global"] as $key => $value) {
             $mailin->createAttribute("global", $value["name"], array("value" => $value["value"]));
         }
     }
@@ -435,12 +441,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
          */
         $mailin = $this->createObjSibClient($key);
         $response = $mailin->getFoldersAll();
-        $list_folder = array();
+        $listFolder = array();
         $folder = array();
 
         if (isset($response["folders"])) {
             foreach ($response["folders"] as $value) {
-                if (strtolower($value['name']) == 'magento') {
+                if (strtolower($value["name"]) == 'magento') {
                     $folder = $value;
                 }
             }
@@ -449,19 +455,21 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         if (empty($folder)) {
             return false;
         }
-        $list_folder["folder"] = $folder;
+        $listFolder["folder"] = $folder;
         $response2 = $mailin->getAllLists($folder["id"]);
 
         if (empty($response2["lists"])) {
-            return $list_folder;
+            return $listFolder;
         }
 
-        foreach ($response2["lists"] as $value) {
-            if (strtolower($value['name']) == 'magento') {
-                $list_folder["list"] = $value;
+        foreach ($response2["lists"] as $list) {
+            if ($list) {
+                if (strtolower($list["name"]) == 'magento') {
+                    $listFolder["list"] = $list;
+                }
             }
         }
-        return $list_folder;
+        return $listFolder;
     }
 
     /**
@@ -486,8 +494,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
              */
             $mailinObj = $this->createObjSibClient();
             $userDataInformation['fileUrl'] = $mediaUrl . 'sendinblue_csv/' . $this->getDbData('sendin_csv_file_name') . '.csv';
-            $userDataInformation['listIds'] = array(intval($listId)); // $list;
-            $responseValue = $mailinObj->importUsers($userDataInformation);
+            $userDataInformation['listIds'] = array(intval($listId));
+            try {
+                $mailinObj->importUsers($userDataInformation);
+            } catch (\Exception $e) {
+                //@FIXME do something... 500 error not managed
+            }
             $this->updateDbData('selected_list_data', trim($listId));
             if (SendinblueSibClient::RESPONSE_CODE_ACCEPTED == $mailinObj->getLastResponseCode()) {
                 $this->updateDbData('import_old_user_status', 0);
@@ -756,7 +768,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $mailin = $this->createObjSibClient();
         $response = $mailin->getSenders();
         if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
-            $senders = array('id' => $response['senders'][0]['id'], 'from_name' => $response['senders'][0]['name'], 'from_email' => $response['senders'][0]['email']);
+            $senders = array('id' => $response->getSenders()[0]->getId(), 'from_name' => $response->getSenders()[0]->getName(), 'from_email' => $response->getSenders()[0]->getEmail());
             $this->updateDbData('sendin_sender_value', json_encode($senders));
         }
     }
@@ -850,23 +862,23 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
             $resultSubscriber = $connection->fetchAll('SELECT count(*) as countval FROM `' . $tblNewsletter . '` WHERE subscriber_email =' . "'$email'" . ' AND subscriber_status = 1');
             if (isset($resultSubscriber[0]['countval']) && $resultSubscriber[0]['countval'] > 0) {
-                $order = $this->orderFactory->getCollection()->addAttributeToFilter('customer_id', $customerId);
-                foreach ($order as $orderDatamodel) {
-                    if (count($orderDatamodel) > 0) {
-                        $orderData = $orderDatamodel->getData();
-                        $orderID = $orderData['increment_id'];
-                        $orderPrice = $orderData['grand_total'];
-                        $dateAdded = $orderData['created_at'];
-                        if ($dateValue == 'dd-mm-yyyy') {
-                            $orderDate = date('d-m-Y', strtotime($dateAdded));
-                        } else {
-                            $orderDate = date('m-d-Y', strtotime($dateAdded));
-                        }
-                        $historyData = array();
-                        $historyData[] = array($email, $orderID, $orderPrice, $orderDate);
-                        foreach ($historyData as $line) {
-                            fputcsv($handle, $line, ';');
-                        }
+                $orders = $this->orderCollectionFactory->create()
+                    ->addAttributeToFilter('customer_id', $customerId)
+                    ->getItems();
+                foreach ($orders as $orderDatamodel) {
+                    $orderData = $orderDatamodel->getData();
+                    $orderID = $orderData['increment_id'];
+                    $orderPrice = $orderData['grand_total'];
+                    $dateAdded = $orderData['created_at'];
+                    if ($dateValue == 'dd-mm-yyyy') {
+                        $orderDate = date('d-m-Y', strtotime($dateAdded));
+                    } else {
+                        $orderDate = date('m-d-Y', strtotime($dateAdded));
+                    }
+                    $historyData = array();
+                    $historyData[] = array($email, $orderID, $orderPrice, $orderDate);
+                    foreach ($historyData as $line) {
+                        fputcsv($handle, $line, ';');
                     }
                 }
             }
@@ -883,8 +895,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $mailinObj = $this->createObjSibClient();
         $baseUrl = $this->_storeManagerInterface->getStore()->getBaseUrl(\Magento\Framework\UrlInterface::URL_TYPE_MEDIA);
         $userDataInformation['fileUrl'] = $baseUrl . 'sendinblue_csv/ImportOldOrdersToSendinblue.csv';
-        $userDataInformation['listIds'] = $listIdVal; // $list;
-        $responseValue = $mailinObj->importUsers($userDataInformation);
+        $userDataInformation['listIds'] = $listIdVal;
+        try {
+            $responseValue = $mailinObj->importUsers($userDataInformation);
+        } catch (\Exception $e) {
+            //500 error (file not found maybe)
+        }
         if (SendinblueSibClient::RESPONSE_CODE_ACCEPTED === $mailinObj->getLastResponseCode()) {
             return 1;
         }
@@ -900,6 +916,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param $number
      * @return string
      * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
+     * @throws \Zend_Mail_Exception
      */
     public function sendOrderTestSms($sender, $message, $number)
     {
@@ -1052,10 +1070,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         if (SendinblueSibClient::RESPONSE_CODE_CREATED === $mailin->getLastResponseCode()) {
             $notifyLimit = $this->getDbData('notify_value');
             $emailSendStatus = $this->getDbData('notify_email_send');
-            if (!empty($notifyLimit) && $dataResp['remainingCredits'] <= $notifyLimit && $emailSendStatus == 0) {
+            if (!empty($notifyLimit) && $dataResp->getRemainingCredits() <= $notifyLimit && $emailSendStatus == 0) {
                 $smtpResult = $this->getDbData('relay_data_status');
                 if ($smtpResult == 'enabled') {
-                    $this->sendNotifySms($dataResp['remainingCredits']);
+                    $this->sendNotifySms($dataResp->getRemainingCredits());
                     $this->updateDbData('notify_email_send', 1);
                 }
             }
@@ -1150,7 +1168,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
                 "recipients" => array("listIds" => $listValue),
                 "scheduledAt" => $scheduleTime
             );
-            $campResponce = $mailin->createSmsCampaign($data);
+            $mailin->createSmsCampaign($data);
 
             if (SendinblueSibClient::RESPONSE_CODE_CREATED === $mailin->getLastResponseCode()) {
                 return 'success';
@@ -1424,17 +1442,17 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             if (intval($doubleOptinTempId) > 0) {
                 $response = $mailin->getTemplateById($doubleOptinTempId);
                 if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
-                    $htmlContent = $response['htmlContent'];
+                    $htmlContent = $response->getHtmlContent();
                     if (trim($response['subject']) != '') {
                         $subject = trim($response['subject']);
                     }
-                    if (($response['sender']['name'] != '[DEFAULT_FROM_NAME]') &&
-                        ($response['sender']['email'] != '[DEFAULT_FROM_EMAIL]') &&
-                        ($response['sender']['email'] != '')) {
-                        $senderName = $response['sender']['name'];
-                        $senderEmail = $response['sender']['email'];
+                    if (($response->getSender()->getName() != '[DEFAULT_FROM_NAME]') &&
+                        ($response->getSender()->getEmail() != '[DEFAULT_FROM_EMAIL]') &&
+                        ($response->getSender()->getEmail() != '')) {
+                        $senderName = $response->getSender()->getName();
+                        $senderEmail = $response->getSender()->getEmail();
                     }
-                    $transactionalTags = $response['name'];
+                    $transactionalTags = $response->getSender()->getName();
                 }
             } else {
                 return $this->smtpSendMail($to, $title, $tempName, $paramVal);

@@ -7,6 +7,7 @@
 namespace Sendinblue\Sendinblue\Model;
 
 use \GuzzleHttp\Client as HttpClient;
+use Magento\Setup\Exception;
 use \SendinBlue\Client\Configuration as ClientConfiguration;
 use \SendinBlue\Client\Api\ContactsApi;
 use \SendinBlue\Client\Api\AccountApi;
@@ -23,6 +24,7 @@ use \SendinBlue\Client\Model\SendTransacSms;
 use \SendinBlue\Client\Model\UpdateContact;
 use \SendinBlue\Client\Model\SendSmtpEmail;
 use \SendinBlue\Client\Model\CreateSmsCampaign;
+use \SendinBlue\Client\Model\CreateList;
 
 /**
  * Class SendinblueSibClient
@@ -76,9 +78,9 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getLists($data['limit'], $data['offset']);
+        $result = $apiInstance->getListsWithHttpInfo($data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
-        $result = (array)$result[0];
+        return $result[0];
     }
 
 
@@ -94,7 +96,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getFolderLists($folder, $data['limit'], $data['offest']);
+        $result = $apiInstance->getFolderListsWithHttpInfo($folder, $data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -111,7 +113,7 @@ class SendinblueSibClient
             $this->config
         );
         $requestContactImport = new RequestContactImport($data);
-        $result = $apiInstance->importContacts($requestContactImport);
+        $result = $apiInstance->importContactsWithHttpInfo($requestContactImport);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -128,22 +130,28 @@ class SendinblueSibClient
         $limit = 50;
         do {
             if ($folder > 0) {
-                $list_data = $this->getListsInFolder($folder, array('limit' => $limit, 'offset' => $offset));
+                $listData = $this->getListsInFolder($folder, array('limit' => $limit, 'offset' => $offset));
             } else {
-                $list_data = $this->getLists(array('limit' => $limit, 'offset' => $offset));
+                $listData = $this->getLists(array('limit' => $limit, 'offset' => $offset));
             }
-            if ($list_data->getLists()) {
-                $list_data = array("lists" => array(), "count" => 0);
+
+            if (!$listData->getLists() || empty($listData->getLists())) {
+                $listData = array("lists" => array(), "count" => 0);
+            } else {
+                $listData = $listData->getLists();
             }
-            $lists["lists"] = array_merge($lists["lists"], $list_data->getLists());
+
+            $lists["lists"] = array_merge($lists["lists"], $listData);
+
             $offset += 50;
-        } while (count($lists["lists"]) < $list_data->getCount());
-        $lists["count"] = $list_data->getCounzt();
+        } while (count($lists["lists"]) < count($listData));
+        $lists["count"] = count($listData);
         return $lists;
     }
 
     /**
      * @throws \SendinBlue\Client\ApiException
+     * @return \SendinBlue\Client\Model\GetAttributes
      */
     public function getAttributes()
     {
@@ -151,7 +159,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getAttributes();
+        $result = $apiInstance->getAttributesWithHttpInfo();
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -186,7 +194,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getFolders($data['limit'], $data['offset']);
+        $result = $apiInstance->getFoldersWithHttpInfo($data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -201,11 +209,11 @@ class SendinblueSibClient
         $offset = 0;
         $limit = 50;
         do {
-            $folder_data = $this->getFolders(array('limit' => $limit, 'offset' => $offset));
-            $folders["folders"] = array_merge($folders["folders"], $folder_data["folders"]);
+            $folderData = $this->getFolders(array('limit' => $limit, 'offset' => $offset));
+            $folders["folders"] = array_merge($folders["folders"], $folderData->getFolders());
             $offset += 50;
-        } while (count($folders["folders"]) < $folder_data["count"]);
-        $folders["count"] = $folder_data["count"];
+        } while (count($folders["folders"]) < $folderData->getCount());
+        $folders["count"] = $folderData->getCount();
         return $folders;
     }
 
@@ -221,7 +229,7 @@ class SendinblueSibClient
             $this->config
         );
         $createFolder = new CreateUpdateFolder($data);
-        $result = $apiInstance->createFolder($createFolder);
+        $result = $apiInstance->createFolderWithHttpInfo($createFolder);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -237,7 +245,8 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getLists($data['limit'], $data['offset']);
+        $createList = new CreateList($data);
+        $result = $apiInstance->createListWithHttpInfo($createList);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -253,7 +262,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getContactInfo(urlencode($email));
+        $result = $apiInstance->getContactInfoWithHttpInfo(urlencode($email));
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -270,7 +279,7 @@ class SendinblueSibClient
             $this->config
         );
         $createContact = new CreateContact($data);
-        $result = $apiInstance->createContact($createContact);
+        $result = $apiInstance->createContactWithHttpInfo($createContact);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -305,7 +314,7 @@ class SendinblueSibClient
             $this->config
         );
         $sendTransacSms = new SendTransacSms();
-        $result = $apiInstance->sendTransacSms($sendTransacSms);
+        $result = $apiInstance->sendTransacSmsWithHttpInfo($sendTransacSms);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -322,7 +331,7 @@ class SendinblueSibClient
             $this->config
         );
         $sendSmtpEmail = new SendSmtpEmail($data);
-        $result = $apiInstance->sendTransacEmail($sendSmtpEmail);
+        $result = $apiInstance->sendTransacEmailWithHttpInfo($sendSmtpEmail);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -339,7 +348,7 @@ class SendinblueSibClient
             $this->config
         );
         $createSmsCampaign = new CreateSmsCampaign($data);
-        $result = $apiInstance->createSmsCampaign($createSmsCampaign);
+        $result = $apiInstance->createSmsCampaignWithHttpInfo($createSmsCampaign);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -356,7 +365,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getSmtpTemplates($data['templateStatus'], $data['limit'], $data['offset']);
+        $result = $apiInstance->getSmtpTemplatesWithHttpInfo($data['templateStatus'], $data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -371,13 +380,26 @@ class SendinblueSibClient
         $offset = 0;
         $limit = 50;
         do {
-            $template_data = $this->getEmailTemplates(array('templateStatus' => 'true', 'limit' => $limit, 'offset' => $offset));
-            if (!isset($template_data["templates"])) {
-                $template_data = array("templates" => array(), "count" => 0);
+            /**
+             * @var \SendinBlue\Client\Model\GetSmtpTemplates $templateData
+             */
+            $templateData = $this->getEmailTemplates(array('templateStatus' => 'true', 'limit' => $limit, 'offset' => $offset));
+            if (!$templateData->getTemplates() || $templateData->getTemplates() === null) {
+                $templateData = array("templates" => array(), "count" => 0);
+            } else {
+                foreach($templateData->getTemplates() as $template) {
+                    $templateData["templates"][] = [
+                        "name" => $template->getName(),
+                        "id" => $template->getId(),
+                        "isActive" => $template->getIsActive(),
+                        "htmlContent" => $template->getHtmlContent()
+                    ];
+                }
+                $templateData["count"] = $templateData->getCount();
             }
-            $templates["templates"] = array_merge($templates["templates"], $template_data["templates"]);
+            $templates["templates"] = array_merge($templates["templates"], $templateData);
             $offset += 50;
-        } while (count($templates["templates"]) < $template_data["count"]);
+        } while (count($templates["templates"]) < $templateData["count"]);
         $templates["count"] = count($templates["templates"]);
         return $templates;
     }
@@ -393,7 +415,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getSmtpTemplate($id);
+        $result = $apiInstance->getSmtpTemplateWithHttpInfo($id);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -410,7 +432,7 @@ class SendinblueSibClient
             $this->config
         );
         $sendSmtpEmail = new SendSmtpEmail($data);
-        $result = $apiInstance->sendTransacEmail($sendSmtpEmail);
+        $result = $apiInstance->sendTransacEmailWithHttpInfo($sendSmtpEmail);
         $this->lastResponseCode = $result[1];
         return $result[0];
     }
@@ -425,7 +447,7 @@ class SendinblueSibClient
             new HttpClient(),
             $this->config
         );
-        $result = $apiInstance->getSenders();
+        $result = $apiInstance->getSendersWithHttpInfo();
         $this->lastResponseCode = $result[1];
         return $result[0];
     }

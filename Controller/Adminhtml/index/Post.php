@@ -217,7 +217,7 @@ class Post extends \Magento\Backend\App\Action
             $model->updateDbData('api_key_status', 0);
             $model->resetDataBaseValue();
             $this->messageManager->addError(
-                __('API key is invalid.')
+                __($e->getMessage())
             );
             $this->_redirect('sendinblue/sib/index');
             return;

@@ -262,7 +262,7 @@ $newIconSvg = '<svg viewBox="0 0 512 512" style="width:16px !important; height:1
                                                                     <?php
                                                                     if (!empty($camp['templates'])) {
                                                                         foreach ($camp['templates'] as $templateData) {
-                                                                            if ($templateData['isActive'] && stristr($templateData['htmlContent'], 'doubleoptin') === false) {
+                                                                            if (!empty($templateData) && $templateData['isActive'] && stristr($templateData['htmlContent'], 'doubleoptin') === false) {
                                                                     ?>
                                                                     <option value="<?php echo $templateData['id']; ?>"  <?php if (trim($tempIdDb) == trim($templateData['id']) ) { echo 'selected="selected"'; } ?> >
                                                                         <?php echo $templateData['name']; ?>
@@ -301,7 +301,7 @@ $newIconSvg = '<svg viewBox="0 0 512 512" style="width:16px !important; height:1
                                                             $doubleOptinTempId = $model->getDbData('doubleoptin_template_id');
                                                             if (!empty($camp['templates'])) {
                                                                 foreach ($camp['templates'] as $templateData) {
-                                                                    if ($templateData['isActive'] === true && stristr($templateData['htmlContent'], 'doubleoptin') == true) {
+                                                                    if (!empty($templateData) && $templateData['isActive'] === true && stristr($templateData['htmlContent'], 'doubleoptin') == true) {
                                                                         if (trim($templateData['id']) == trim($doubleOptinTempId)) { echo  'selected="selected"'; }
                                                             ?>
 
@@ -349,7 +349,7 @@ $newIconSvg = '<svg viewBox="0 0 512 512" style="width:16px !important; height:1
                                                                          $optinTempDb = $model->getDbData('final_template_id');
                                                                     if (!empty($camp['templates'])) {
                                                                         foreach ($camp['templates'] as $templateData) {
-                                                                            if ($templateData['isActive'] === true && stristr($templateData['htmlContent'], 'doubleoptin') === false) {
+                                                                            if (!empty($templateData) && $templateData['isActive'] === true && stristr($templateData['htmlContent'], 'doubleoptin') === false) {
                                                                                 if (trim($templateData['id']) == trim($optinTempDb)) { echo  'selected="selected"'; }
                                                                     ?>
 

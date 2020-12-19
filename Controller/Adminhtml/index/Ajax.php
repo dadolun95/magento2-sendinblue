@@ -255,17 +255,17 @@ class Ajax extends \Magento\Backend\App\Action
         $model->updateDbData('sib_contact_sync_status', $post['sib_contact_sync_status']);
 
         if( $post['sib_contact_sync_list'] != 0 && $post['sib_contact_sync_status'] != 0 ) {
-                $model->sendAllMailIDToSendin($post['sib_contact_sync_list']);
-                $importOlduserStatus = $model->getDbData('import_old_user_status');
-                if ($importOlduserStatus == 0) {
-                    $msgVal = __('Old subscribers imported successfully');
-                }
-                else if ($importOlduserStatus == 1) {
-                    $msgVal = __('Old subscribers not imported successfully, please click on Save button to import them again');
-                }
-                else {
-                    $msgVal = __('Old subscribers are not exists');
-                }
+            $model->sendAllMailIDToSendin($post['sib_contact_sync_list']);
+            $importOlduserStatus = $model->getDbData('import_old_user_status');
+            if ($importOlduserStatus == 0) {
+                $msgVal = __('Old subscribers imported successfully');
+            }
+            else if ($importOlduserStatus == 1) {
+                $msgVal = __('Old subscribers not imported successfully, please click on Save button to import them again');
+            }
+            else {
+                $msgVal = __('Old subscribers are not exists');
+            }
         }
         else {
             $msgVal = __('Sendiblue configuration setting Successfully updated');
@@ -287,10 +287,12 @@ class Ajax extends \Magento\Backend\App\Action
         if ($post['import_order_data'] == 1) {
             $respData = $model->importOrderhistory();
             if ($respData) {
+                die("CIAO 1");
                 $msgVal .= __('Order history has been import successfully');
                 $this->getResponse()->setHeader('Content-type', 'application/text');
                 $this->getResponse()->setBody($msgVal);
             } else {
+                die("CIAO 2");
                 $msgVal .= __('Order history has not been imported successfully');
                 $this->getResponse()->setHeader('Content-type', 'application/text');
                 $this->getResponse()->setBody($msgVal);
