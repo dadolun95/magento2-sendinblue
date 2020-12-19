@@ -897,7 +897,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $userDataInformation['fileUrl'] = $baseUrl . 'sendinblue_csv/ImportOldOrdersToSendinblue.csv';
         $userDataInformation['listIds'] = $listIdVal;
         try {
-            $responseValue = $mailinObj->importUsers($userDataInformation);
+            $mailinObj->importUsers($userDataInformation);
         } catch (\Exception $e) {
             //500 error (file not found maybe)
         }
@@ -921,12 +921,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function sendOrderTestSms($sender, $message, $number)
     {
-        $charone = substr($number, 0, 1);
-        $chartwo = substr($number, 0, 2);
-        if ($charone == '0' && $chartwo == '00') {
-            $number = $number;
-        }
-
         if (!empty($number)) {
             $adminData = $this->getCurrentUser();
             $firstname = $adminData->getData('firstname');
@@ -968,15 +962,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param $number
      * @return string
      * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
+     * @throws \Zend_Mail_Exception
      */
     public function sendShippedTestSms($sender, $message, $number)
     {
-        $charone = substr($number, 0, 1);
-        $chartwo = substr($number, 0, 2);
-        if ($charone == '0' && $chartwo == '00') {
-            $number = $number;
-        }
-
         if (!empty($number)) {
             $adminData = $this->getCurrentUser();
             $firstname = $adminData['firstname'];
@@ -1017,11 +1007,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param $message
      * @param $number
      * @return string
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
+     * @throws \Zend_Mail_Exception
      */
     public function sendCampaignTestSms($sender, $message, $number)
     {
-        $charone = substr($number, 0, 1);
-        $chartwo = substr($number, 0, 2);
 
         if (!empty($number)) {
             $adminData = $this->getCurrentUser();
@@ -1112,9 +1103,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
     /**
      * This method is called when the user sets the Campaign multiple Choice and hits subscribed user the submit button.
-     *
+     * 
      * @param $post
      * @return string
+     * @throws \SendinBlue\Client\ApiException
      */
     public function multipleChoiceSubCampaign($post)
     {
