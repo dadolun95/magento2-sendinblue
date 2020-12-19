@@ -6,11 +6,10 @@
  */
 namespace Sendinblue\Sendinblue\Observer;
 
-use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Magento\Sales\Api\Data\OrderInterface;
-use Sendinblue\Sendinblue\Model;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
 
 /**
@@ -26,50 +25,57 @@ class SibShipObserver implements ObserverInterface
     protected $sendinblueSib;
 
     /**
-     * @var OrderInterface
+     * @var OrderRepositoryInterface
      */
-    protected $order;
+    protected $orderRepository;
 
     /**
-     * @var CustomerAddress
+     * @var CustomerAddressRepository
      */
-    protected $customerAddress;
+    protected $customerAddressRepository;
 
     /**
-     * SibOrderObserver constructor.
+     * SibShipObserver constructor.
      * @param SendinblueSib $sendinblueSib
-     * @param OrderInterface $order
-     * @param CustomerAddress $customerAddress
+     * @param OrderRepositoryInterface $orderRepository
+     * @param CustomerAddressRepository $customerAddressRepository
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
-        OrderInterface $order,
-        CustomerAddress $customerAddress
+        OrderRepositoryInterface $orderRepository,
+        CustomerAddressRepository $customerAddressRepository
     )
     {
         $this->sendinblueSib = $sendinblueSib;
-        $this->order = $order;
-        $this->customerAddress = $customerAddress;
+        $this->orderRepository = $orderRepository;
+        $this->customerAddressRepository = $customerAddressRepository;
     }
 
     /**
      * @param Observer $observer
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
+     * @throws \Zend_Mail_Exception
      */
     public function execute(Observer $observer)
     {
         $model = $this->sendinblueSib;
 
+        /**
+         * @var \Magento\Sales\Api\Data\ShipmentInterface $shipment
+         */
         $shipment = $observer->getEvent()->getShipment();
+        /**
+         * @var \Magento\Sales\Api\Data\OrderInterface $order
+         */
         $order = $shipment->getOrder();
         $dateValue = $model->getDbData('sendin_date_format');
         $orderStatus = $model->getDbData('api_sms_shipment_status');
         $senderOrder = $model->getDbData('sender_shipment');
         $senderOrderMessage = $model->getDbData('sender_shipment_message');
-        $orderId = $order->getID();
-        /**
-         * @FIXME use repository instead
-         */
-        $orderDatamodel = $this->order->load($orderId);
+        $orderId = $order->getEntityId();
+        $orderDatamodel = $this->orderRepository->get($orderId);
         $orderData = $orderDatamodel->getData();
         $email = $orderData['customer_email'];
         $orderID = $orderData['increment_id'];
@@ -86,12 +92,9 @@ class SibShipObserver implements ObserverInterface
             if ($orderStatus == 1 && !empty($senderOrder) && !empty($senderOrderMessage)) {
                 $custId = $orderData['customer_id'];
                 if (!empty($custId)) {
-                    /**
-                     * @FIXME use repository instead
-                     */
-                    $customers = $model->_customers->load($custId);
-                    $shoppingId =  $customers->getDefaultShipping();
-                    $address = $this->customerAddress->load($shoppingId);
+                    $customer = $model->getCustomer($custId);
+                    $shoppingId =  $customer->getDefaultShipping();
+                    $address = $this->customerAddressRepository->getById($shoppingId);
                 }
 
                 $firstname = $address->getFirstname();

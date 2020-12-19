@@ -8,8 +8,9 @@
 namespace Sendinblue\Sendinblue\Model;
 
 use Magento\Backend\Model\Auth\Session as BackendAuthSession;
-use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerCollectionFactory;
+use Magento\Customer\Api\CustomerRepositoryInterface as CustomerRepository;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
 
@@ -69,9 +70,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     protected $sendinblueSibClientFactory;
     /**
-     * @var CustomerAddress
+     * @var CustomerAddressRepository
      */
-    protected $customerAddress;
+    protected $customerAddressRepository;
     /**
      * @var OrderCollectionFactory
      */
@@ -84,6 +85,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @var CustomerCollectionFactory
      */
     protected $customerCollectionFactory;
+    /**
+     * @var CustomerRepository
+     */
+    protected $customerRepository;
 
     public $_storeId;
 
@@ -111,14 +116,15 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param \Magento\Newsletter\Model\ResourceModel\Subscriber $subscriber
      * @param \Magento\Framework\App\ResourceConnection $resource
      * @param \Magento\Store\Model\StoreManagerInterface $storeManagerInterface
-     * @param \Magento\Sales\Model\ResourceModel\Order\CollectionFactory $salesOrderCollectionFactory
+     * @param OrderCollectionFactory $salesOrderCollectionFactory
      * @param \Magento\Framework\Setup\ModuleDataSetupInterface $getTb
      * @param \Magento\Framework\View\Element\Template $blocktemp
      * @param CustomerCollectionFactory $customerCollectionFactory
      * @param BackendAuthSession $backendAuthSession
      * @param MmailinFactory $mailingFactory
      * @param SendinblueSibClientFactory $sendinblueSibClientFactory
-     * @param CustomerAddress $customerAddress
+     * @param CustomerAddressRepository $customerAddressRepository
+     * @param CustomerRepository $customerRepository
      * @param OrderCollectionFactory $orderCollectionFactory
      * @param ConfigHelper $configHelper
      */
@@ -138,7 +144,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         BackendAuthSession $backendAuthSession,
         MmailinFactory $mailingFactory,
         SendinblueSibClientFactory $sendinblueSibClientFactory,
-        CustomerAddress $customerAddress,
+        CustomerAddressRepository $customerAddressRepository,
+        CustomerRepository $customerRepository,
         OrderCollectionFactory $orderCollectionFactory,
         ConfigHelper $configHelper
     )
@@ -159,9 +166,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $this->backendAuthSession = $backendAuthSession;
         $this->mailingFactory = $mailingFactory;
         $this->sendinblueSibClientFactory = $sendinblueSibClientFactory;
-        $this->customerAddress = $customerAddress;
+        $this->customerAddressRepository = $customerAddressRepository;
         $this->orderCollectionFactory = $orderCollectionFactory;
         $this->configHelper = $configHelper;
+        $this->customerRepository = $customerRepository;
         /**
          * To create Api v3 by v2. When someone update our plugin
          */
@@ -531,10 +539,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $billingId = $customers->getDefaultBilling();
             $customerAddress = array();
             if (!empty($billingId)) {
-                /**
-                 * @FIXME use repository instead
-                 */
-                $address = $this->customerAddress->load($billingId);
+                $address = $this->customerAddressRepository->getById($billingId);
                 $telephone = '';
                 $streetValue = implode(' ', $address->getStreet());
 
@@ -606,14 +611,26 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     }
 
     /**
-     * @FIXME use customer repository
      * @param $customerId
      * @return mixed
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
     public function getCustomer($customerId)
     {
-        //Get customer by customerID
-        $dataCust = $this->_customers->load($customerId);
+        $dataCust = $this->customerRepository->getById($customerId);
+        return $dataCust->getData();
+    }
+
+    /**
+     * @param $customerEmail
+     * @return mixed
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     */
+    public function getCustomerByEmail($customerEmail)
+    {
+        $dataCust = $this->customerRepository->get($customerEmail);
         return $dataCust->getData();
     }
 
@@ -1103,7 +1120,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
     /**
      * This method is called when the user sets the Campaign multiple Choice and hits subscribed user the submit button.
-     * 
+     *
      * @param $post
      * @return string
      * @throws \SendinBlue\Client\ApiException
@@ -1194,10 +1211,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             foreach ($customerObj as $customerObjdata) {
                 $billingId = $customerObjdata->getDefaultBilling();
                 if (!empty($billingId)) {
-                    /**
-                     * @FIXME use repository instead
-                     */
-                    $address = $this->customerAddress->load($billingId);
+                    $address = $this->customerAddressRepository->getById($billingId);
                     $smsValue = $address->getTelephone();
                     $countryId = $address->getCountry();
                     $firstName = $address->getFirstname();

@@ -4,14 +4,13 @@
  * @package     Sendinblue_Sendinblue
  * URL:  https:www.sendinblue.com
  */
-
 namespace Sendinblue\Sendinblue\Observer;
 
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Magento\Sales\Api\Data\OrderInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
-use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 
 /**
  * Class SibOrderObserver
@@ -26,34 +25,38 @@ class SibOrderObserver implements ObserverInterface
     protected $sendinblueSib;
 
     /**
-     * @var OrderInterface
+     * @var OrderRepositoryInterface
      */
-    protected $order;
+    protected $orderRepository;
 
     /**
-     * @var CustomerAddress
+     * @var CustomerAddressRepository
      */
-    protected $customerAddress;
+    protected $customerAddressRepository;
 
     /**
      * SibOrderObserver constructor.
      * @param SendinblueSib $sendinblueSib
-     * @param OrderInterface $order
-     * @param CustomerAddress $customerAddress
+     * @param OrderRepositoryInterface $orderRepository
+     * @param CustomerAddressRepository $customerAddressRepository
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
-        OrderInterface $order,
-        CustomerAddress $customerAddress
+        OrderRepositoryInterface $orderRepository,
+        CustomerAddressRepository $customerAddressRepository
     )
     {
         $this->sendinblueSib = $sendinblueSib;
-        $this->order = $order;
-        $this->customerAddress = $customerAddress;
+        $this->orderRepository = $orderRepository;
+        $this->customerAddressRepository = $customerAddressRepository;
     }
 
     /**
      * @param Observer $observer
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
+     * @throws \Zend_Mail_Exception
      */
     public function execute(Observer $observer)
     {
@@ -66,10 +69,7 @@ class SibOrderObserver implements ObserverInterface
         $senderOrderMessage = $model->getDbData('sender_order_message');
         $order = $observer->getEvent()->getData();
         $orderId = $order['order_ids'][0];
-        /**
-         * @FIXME user repository instead
-         */
-        $orderDatamodel = $this->order->load($orderId);
+        $orderDatamodel = $this->orderRepository->get($orderId);
         $orderData = $orderDatamodel->getData();
         $email = $orderData['customer_email'];
         $NlStatus = $model->checkNlStatus($email);
@@ -100,13 +100,10 @@ class SibOrderObserver implements ObserverInterface
             if ($orderStatus == 1 && !empty($senderOrder) && !empty($senderOrderMessage)) {
                 $custId = $orderData['customer_id'];
                 if (!empty($custId)) {
-                    $customers = $model->_customers->load($custId);
+                    $customers = $model->getCustomer($custId);
                     $billingId =  $customers->getDefaultBilling();
                     $billingId = !empty($billingId) ? $billingId : $customers->getDefaultShipping();
-                    /**
-                     * @FIXME use repository instead
-                     */
-                    $address = $this->customerAddress->load($billingId);
+                    $address = $this->customerAddressRepository->getById($billingId);
                 }
 
                 $firstname = $address->getFirstname();

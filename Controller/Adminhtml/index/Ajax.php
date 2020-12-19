@@ -9,7 +9,7 @@ namespace Sendinblue\Sendinblue\Controller\Adminhtml\Index;
 use Magento\Backend\App\Action;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
 use Magento\Backend\Block\Template as BackendBlockTemplate;
-use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 
 /**
  * Class Ajax
@@ -29,27 +29,27 @@ class Ajax extends \Magento\Backend\App\Action
     protected $backendBlockTemplate;
 
     /**
-     * @var CustomerAddress
+     * @var CustomerAddressRepository
      */
-    protected $customerAddress;
+    protected $customerAddressRepository;
 
     /**
      * Ajax constructor.
      * @param Action\Context $context
      * @param SendinblueSib $sendinblueSib
      * @param BackendBlockTemplate $backendBlockTemplate
-     * @param CustomerAddress $customerAddress
+     * @param CustomerAddressRepository $customerAddressRepository
      */
     public function __construct(
         Action\Context $context,
         SendinblueSib $sendinblueSib,
         BackendBlockTemplate $backendBlockTemplate,
-        CustomerAddress $customerAddress
+        CustomerAddressRepository $customerAddressRepository
     )
     {
         $this->backendBlockTemplate = $backendBlockTemplate;
         $this->sendinblueSib = $sendinblueSib;
-        $this->customerAddress = $customerAddress;
+        $this->customerAddressRepository = $customerAddressRepository;
         parent::__construct($context);
     }
 
@@ -485,7 +485,7 @@ class Ajax extends \Magento\Backend\App\Action
         if (!empty($email) && $postNewsLetter == 0) {
             $storeId = $model->_storeManagerInterface->getStore()->getId();
             $model->_customers->setWebsiteId($storeId);
-            $dataCust = $model->_customers->loadByEmail($email);
+            $dataCust = $model->getCustomerByEmail($email);
             $customer = $dataCust->getData();
             if (isset($customer['entity_id']) > 0) {
                 $billingId = !empty($customer['default_billing']) ? $customer['default_billing'] : '';
@@ -520,10 +520,7 @@ class Ajax extends \Magento\Backend\App\Action
                 }
 
                 if (!empty($billingId)) {
-                    /**
-                     * @FIXME user repository instead
-                     */
-                    $address = $this->customerAddress->load($billingId);
+                    $address = $this->customerAddressRepository->getById($billingId);
                     $street = $address->getStreet();
                     $streetValue = '';
                     foreach ($street as $streetData){

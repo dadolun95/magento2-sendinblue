@@ -10,7 +10,7 @@ namespace Sendinblue\Sendinblue\Observer;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
-use Magento\Customer\Model\Address as CustomerAddress;
+use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 
 /**
  * Class SibNlObserver
@@ -25,27 +25,28 @@ class SibNlObserver implements ObserverInterface
     protected $sendinblueSib;
 
     /**
-     * @var CustomerAddress
+     * @var CustomerAddressRepository
      */
-    protected $customerAddress;
+    protected $customerAddressRepository;
 
     /**
      * SibNlObserver constructor.
      * @param SendinblueSib $sendinblueSib
-     * @param CustomerAddress $customerAddress
+     * @param CustomerAddressRepository $customerAddressRepository
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
-        CustomerAddress $customerAddress
+        CustomerAddressRepository $customerAddressRepository
     )
     {
         $this->sendinblueSib = $sendinblueSib;
-        $this->customerAddress = $customerAddress;
+        $this->customerAddressRepository = $customerAddressRepository;
     }
 
     /**
      * @param Observer $observer
      * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
      * @throws \Zend_Mail_Exception
      */
     public function execute(Observer $observer)
@@ -91,8 +92,7 @@ class SibNlObserver implements ObserverInterface
                 }
 
                 if (!empty($billingId)) {
-                    //@FIXME use repository
-                    $address = $this->customerAddress->load($billingId);
+                    $address = $this->customerAddressRepository->getById($billingId);
                     $street = $address->getStreet();
                     $streetValue = '';
                     foreach ($street as $streetData) {
