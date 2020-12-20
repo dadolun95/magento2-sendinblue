@@ -7,7 +7,6 @@
 namespace Sendinblue\Sendinblue\Controller\Adminhtml\Sib;
 
 /**
- * @TODO implement isAllowed method using ACL
  * Class Index
  * @package Sendinblue\Sendinblue\Controller\Adminhtml\Sib
  */

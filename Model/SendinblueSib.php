@@ -255,7 +255,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     /**
      * Set date and language
      *
-     * @param $account
+     * @param \SendinBlue\Client\Model\GetAccount $account
      * @return array
      */
     public function pluginDateLangConfig($account)
@@ -493,11 +493,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $customerAddress = array();
             if (!empty($billingId)) {
                 $address = $this->customerAddressRepository->getById($billingId);
-                $telephone = '';
                 $streetValue = implode(' ', $address->getStreet());
 
                 $customerAddress['telephone'] = !empty($telephone = $address->getTelephone()) ? $telephone : '';
-                $customerAddress['country_id'] = !empty($country = $address->getCountry()) ? $country : '';
+                $customerAddress['country_id'] = !empty($country = $address->getCountryId()) ? $country : '';
                 $customerAddress['company'] = !empty($company = $address->getCompany()) ? $company : '';
                 $customerAddress['street'] = !empty($streetValue) ? $streetValue : '';
                 $customerAddress['postcode'] = !empty($postcode = $address->getPostcode()) ? $postcode : '';
@@ -1164,7 +1163,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
                 if (!empty($billingId)) {
                     $address = $this->customerAddressRepository->getById($billingId);
                     $smsValue = $address->getTelephone();
-                    $countryId = $address->getCountry();
+                    $countryId = $address->getCountryId();
                     $firstName = $address->getFirstname();
                     $lastName = $address->getLastname();
                     $countryPrefix = $this->getCountryCode($countryId);

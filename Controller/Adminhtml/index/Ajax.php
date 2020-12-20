@@ -441,17 +441,17 @@ class Ajax extends \Magento\Backend\App\Action
                      */
                     $sibClient = $model->createSibClient();
 
-                        $data = ["name"=> "FORM"];
-                        $folderRes = $sibClient->createFolder($data);
-                        $folderId = $folderRes['data']['id'];
+                    $data = ["name"=> "FORM"];
+                    $folderRes = $sibClient->createFolder($data);
+                    $folderId = $folderRes['data']['id'];
 
-                        $data = [
-                          "list_name" => 'Temp - DOUBLE OPTIN',
-                          "list_parent" => $folderId
-                        ];
-                        $listResp = $sibClient->createList($data);
-                        $listId = $listResp['data']['id'];
-                        $model->updateDbData('optin_list_id', $listId);
+                    $data = [
+                        "list_name" => 'Temp - DOUBLE OPTIN',
+                        "list_parent" => $folderId
+                    ];
+                    $listResp = $sibClient->createList($data);
+                    $listId = $listResp['data']['id'];
+                    $model->updateDbData('optin_list_id', $listId);
                 }
             }
         }
@@ -503,14 +503,14 @@ class Ajax extends \Magento\Backend\App\Action
                 $localeLang = $model->getDbData('sendin_config_lang');
                 if (!empty($firstName)) {
                     if ($localeLang == 'fr') {
-                      $updateDataInSib['PRENOM'] = $firstName;
+                        $updateDataInSib['PRENOM'] = $firstName;
                     } else {
-                      $updateDataInSib['NAME'] = $firstName;
+                        $updateDataInSib['NAME'] = $firstName;
                     }
                 }
                 if (!empty($lastName)) {
                     if ($localeLang == 'fr') {
-                      $updateDataInSib['NOM'] = $lastName;
+                        $updateDataInSib['NOM'] = $lastName;
                     } else {
                         $updateDataInSib['SURNAME'] = $lastName;
                     }
@@ -575,11 +575,11 @@ class Ajax extends \Magento\Backend\App\Action
 
             if (empty($newsData[0]['subscriber_email'])) {
                 $newsLetterData = [
-                        "store_id" => $customer['store_id'],
-                        "customer_id" => $customer['entity_id'],
-                        "subscriber_email" => $email,
-                        "change_status_at" => date('Y-m-d H:i:s'),
-                        "subscriber_status" => 1,
+                    "store_id" => $customer['store_id'],
+                    "customer_id" => $customer['entity_id'],
+                    "subscriber_email" => $email,
+                    "change_status_at" => date('Y-m-d H:i:s'),
+                    "subscriber_status" => 1,
                 ];
                 $connection->insert($tblNewsletter, $newsLetterData);
             } else {
