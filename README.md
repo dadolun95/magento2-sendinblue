@@ -43,7 +43,7 @@ composer require dadolun95/magento2-sendinblue
   * In command line, using "cd", navigate to your Magento 2 root directory
   * Run commands:
 ```
-forllow steps to install module 
+follow steps to install module 
 
 bin/magento module:enable Sendinblue_Sendinblue
 bin/magento setup:di:compile
