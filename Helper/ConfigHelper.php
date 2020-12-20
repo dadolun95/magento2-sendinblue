@@ -150,7 +150,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
     }
 
     /**
-     * @FIXME move defaults on core config and change on each sendin_config_lang update
+     * @TODO move defaults on core config and change on each sendin_config_lang update
      * @return array
      */
     public function getDefaultSubscriptionAttributes()
@@ -270,7 +270,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
     }
 
     /**
-     * @FIXME move templates in core_config_data table
+     * @TODO move templates in core_config_data table
      * @param $lang
      * @return string
      */
@@ -284,7 +284,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
     }
 
     /**
-     * @FIXME move templates in core_config_data table
+     * @TODO move templates in core_config_data table
      * @param $lang
      * @return string
      */
@@ -297,7 +297,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
     }
 
     /**
-     * @FIXME move templates in core_config_data table
+     * @TODO move templates in core_config_data table
      * @param $lang
      * @return string
      */

@@ -5,7 +5,7 @@
  */
 
 /**
- * @FIXME This is really bad, too much jquery actions and triggers ... don't touch if works, but maybe in future we can rewrite this file
+ * @TODO This is really bad, too much jquery actions and triggers ... don't touch if works, but maybe in future we can rewrite this file
  */
 
 require([

@@ -16,7 +16,7 @@ use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Magento\Newsletter\Model\ResourceModel\Subscriber\CollectionFactory as NewsletterSubscriberCollectionFactory;
 
 /**
- * @FIXME this class is too long, split in more Model classes
+ * @TODO this class is too long, split in more Model classes
  * Class SendinblueSib
  * @package Sendinblue\Sendinblue\Model
  */
@@ -421,7 +421,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             try {
                 $sibClient->importUsers($userDataInformation);
             } catch (\Exception $e) {
-                //@FIXME do something... 500 error not managed
+                //@TODO do something... 500 error not managed by SDK
             }
             $this->updateDbData('selected_list_data', trim($listId));
             if (SibClient::RESPONSE_CODE_ACCEPTED == $sibClient->getLastResponseCode()) {
@@ -569,7 +569,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     }
 
     /**
-     * @FIXME create model and resource model for sendinblue_country_codes table instead of direct queries
+     * @TODO create model and resource model (dedicated entity) for sendinblue_country_codes table instead of direct queries
      * Get getCountryCode from sendinblue_country table
      *
      * @param $countryids
