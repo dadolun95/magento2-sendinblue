@@ -66,7 +66,6 @@ class NewsletterSubscription implements ObserverInterface
         $NlStatus = $subscriber->getSubscriberStatus();
         $sibStatus = $model->syncSetting();
         if ($sibStatus == 1) {
-            $this->logger->info($subscriber->getId());
             if ($subscriber->getCustomerId() && $subscriber->getCustomerId() > 0 && $NlStatus == 1) {
                 $customer = $model->getCustomer($subscriber->getCustomerId());
                 $billingId = !empty($customer['default_billing']) ? $customer['default_billing'] : '';
