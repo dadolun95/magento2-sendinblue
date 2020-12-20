@@ -1,4 +1,4 @@
-#THIS MODULE IS NOT ALREADY STABLE, WE'RE WORKING ON IT
+# THIS MODULE IS NOT ALREADY STABLE, WE'RE WORKING ON IT
 # [Sendinblue](http://sendinblue.com/) Extension for Magento 2
 
 ## Features
