@@ -4,7 +4,6 @@
  * @package     Sendinblue_Sendinblue
  * URL:  https:www.sendinblue.com
  */
-
 namespace Sendinblue\Sendinblue\Block\Adminhtml;
 
 use Magento\Backend\Block\Template;
