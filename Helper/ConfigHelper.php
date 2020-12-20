@@ -84,6 +84,19 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
     }
 
     /**
+     * Get module config
+     *
+     * @param $val
+     * @return mixed
+     */
+    public function getFlag($val)
+    {
+        return $this->scopeConfig->isSetFlag('sendinblue/' . $val, ScopeInterface::SCOPE_STORE);
+    }
+
+
+    /**
+     * @TODO Adminhtml view is not updated when changes come on this method. Should migrate sib.phtml to system.xml or try something different
      * Update module config
      *
      * @param $key
@@ -313,16 +326,15 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
      * Checks whether the Sendinblue API key and the Sendinblue subscription form is enabled
      * and returns the true|false accordingly.
      *
-     * @return int
+     * @return bool
      */
     public function syncSetting() {
-        $keyStatus = $this->getData('api_key_status');
-        $subsStatus = $this->getData('subscribe_setting');
-        if ($keyStatus == 1 && $subsStatus == 1) {
+        $keyStatus = $this->getFlag('api_key_status');
+        $subsStatus = $this->getFlag('subscribe_setting');
+        if ($keyStatus && $subsStatus) {
             return 1;
-        } else {
-            return 0;
         }
+        return 0;
     }
 
 }
