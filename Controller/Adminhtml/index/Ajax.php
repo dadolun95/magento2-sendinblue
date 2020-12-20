@@ -17,6 +17,7 @@ use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository
  */
 class Ajax extends \Magento\Backend\App\Action
 {
+    const ADMIN_RESOURCE = 'Sendinblue_Sendinblue::sendinblue';
 
     /**
      * @var SendinblueSib
@@ -219,13 +220,11 @@ class Ajax extends \Magento\Backend\App\Action
     }
 
     /**
-     * Determine if authorized to perform group actions.
-     *
      * @return bool
      */
     public function _isAllowed()
     {
-        return true;
+        return $this->_authorization->isAllowed(self::ADMIN_RESOURCE);
     }
 
 
@@ -396,7 +395,6 @@ class Ajax extends \Magento\Backend\App\Action
     }
 
     /**
-     * @TODO is this method really useful?
      * @return BackendBlockTemplate
      */
     public function viewObject()
@@ -404,6 +402,9 @@ class Ajax extends \Magento\Backend\App\Action
         return $this->backendBlockTemplate;
     }
 
+    /**
+     * @throws \SendinBlue\Client\ApiException
+     */
     public function saveTemplateValue()
     {
         $model = $this->sibObject();
@@ -435,19 +436,20 @@ class Ajax extends \Magento\Backend\App\Action
                 }
 
                 if ( $resOptin === false && !empty($shopApiKeyStatus) ) {
-                    $mailin = $model->createObjSibClient();
+                    /**
+                     * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
+                     */
+                    $sibClient = $model->createSibClient();
 
-                        $data = [];
                         $data = ["name"=> "FORM"];
-                        $folderRes = $mailin->createFolder($data);
+                        $folderRes = $sibClient->createFolder($data);
                         $folderId = $folderRes['data']['id'];
 
-                        $data = [];
                         $data = [
                           "list_name" => 'Temp - DOUBLE OPTIN',
                           "list_parent" => $folderId
                         ];
-                        $listResp = $mailin->createList($data);
+                        $listResp = $sibClient->createList($data);
                         $listId = $listResp['data']['id'];
                         $model->updateDbData('optin_list_id', $listId);
                 }
@@ -470,6 +472,10 @@ class Ajax extends \Magento\Backend\App\Action
     /**
      * @FIXME use subscriber newsletter collection instead of direct db queries
      * subscribe contact from contact list
+     *
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws \SendinBlue\Client\ApiException
      */
     public function subsUnsubsContact()
     {

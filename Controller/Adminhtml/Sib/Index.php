@@ -4,7 +4,6 @@
  * @package     Sendinblue_Sendinblue
  * URL:  https:www.sendinblue.com
  */
-
 namespace Sendinblue\Sendinblue\Controller\Adminhtml\Sib;
 
 /**
@@ -14,6 +13,9 @@ namespace Sendinblue\Sendinblue\Controller\Adminhtml\Sib;
  */
 class Index extends \Magento\Backend\App\Action
 {
+
+    const ADMIN_RESOURCE = 'Sendinblue_Sendinblue::sendinblue';
+
     /**
      * @var \Magento\Framework\View\Result\PageFactory
      */
@@ -39,6 +41,14 @@ class Index extends \Magento\Backend\App\Action
     public function execute()
     {
         return $this->resultPageFactory->create();
+    }
+
+    /**
+     * @return bool
+     */
+    public function _isAllowed()
+    {
+        return $this->_authorization->isAllowed(self::ADMIN_RESOURCE);
     }
 }
 

@@ -4,7 +4,6 @@
  * @package     Sendinblue_Sendinblue
  * URL:  https:www.sendinblue.com
  */
-
 namespace Sendinblue\Sendinblue\Controller\Adminhtml\Index;
 
 use Magento\Backend\App\Action;
@@ -16,6 +15,8 @@ use Sendinblue\Sendinblue\Model\SendinblueSib;
  */
 class Post extends \Magento\Backend\App\Action
 {
+    const ADMIN_RESOURCE = 'Sendinblue_Sendinblue::sendinblue';
+
     /**
      * @var SendinblueSib
      */
@@ -225,13 +226,11 @@ class Post extends \Magento\Backend\App\Action
     }
 
     /**
-     * @FIXME this should use ACL
-     * Determine if authorized to perform group actions.
      * @return bool
      */
     protected function _isAllowed()
     {
-        return true;
+        return $this->_authorization->isAllowed(self::ADMIN_RESOURCE);
     }
 
     /**
@@ -242,6 +241,10 @@ class Post extends \Magento\Backend\App\Action
         return $this->sendinblueSib;
     }
 
+    /**
+     * @return bool
+     * @throws \SendinBlue\Client\ApiException
+     */
     public function saveTemplateValue()
     {
         $model = $this->sibObject();
@@ -275,18 +278,19 @@ class Post extends \Magento\Backend\App\Action
                 }
 
                 if ( $resOptin === false && !empty($shopApiKeyStatus) ) {
-                    $mailin = $model->createObjSibClient();
-                    $data = [];
+                    /**
+                     * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
+                     */
+                    $sibClient = $model->createSibClient();
                     $data = ["name"=> "FORM"];
-                    $folderRes = $mailin->createFolder($data);
-                    if (201 === $mailin->getLastResponseCode()) {
-                        $data = [];
+                    $folderRes = $sibClient->createFolder($data);
+                    if (201 === $sibClient->getLastResponseCode()) {
                         $data = [
                           "name" => 'Temp - DOUBLE OPTIN',
                           "folderId" => $folderRes["id"]
                         ];
-                        $listResp = $mailin->createList($data);
-                        if (201 === $mailin->getLastResponseCode()) {
+                        $listResp = $sibClient->createList($data);
+                        if (201 === $sibClient->getLastResponseCode()) {
                             $listId = $listResp['id'];
                             $model->updateDbData('optin_list_id', $listId);
                         }

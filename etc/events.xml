@@ -9,19 +9,19 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
     <event name="customer_register_success">
-        <observer name="sendinblue_customer_register" instance="Sendinblue\Sendinblue\Observer\SibObserver"/>
+        <observer name="sendinblue_customer_register" instance="Sendinblue\Sendinblue\Observer\CustomerRegistration"/>
     </event>
     <event name="customer_address_save_after">
-        <observer name="sendinblue_customer_address_after_save_obs" instance="Sendinblue\Sendinblue\Observer\SibaddrObserver"/>
+        <observer name="sendinblue_customer_address_after_save_obs" instance="Sendinblue\Sendinblue\Observer\CustomerAddressUpdate"/>
     </event>
     <event name="newsletter_subscriber_save_after">
-        <observer name="sendinblue_newsletter_obs" instance="Sendinblue\Sendinblue\Observer\SibNlObserver"/>
+        <observer name="sendinblue_newsletter_obs" instance="Sendinblue\Sendinblue\Observer\NewsletterSubscription"/>
     </event>
     <event name="checkout_onepage_controller_success_action">
-        <observer name="sendinblue_order_obs" instance="Sendinblue\Sendinblue\Observer\SibOrderObserver"/>
+        <observer name="sendinblue_order_obs" instance="Sendinblue\Sendinblue\Observer\CheckoutOrderSuccess"/>
     </event>
     <event name="sales_order_shipment_save_after">
-        <observer name="sendinblue_shipped_obs" instance="Sendinblue\Sendinblue\Observer\SibShipObserver"/>
+        <observer name="sendinblue_shipped_obs" instance="Sendinblue\Sendinblue\Observer\OrderShipment"/>
     </event>
 </config>
 

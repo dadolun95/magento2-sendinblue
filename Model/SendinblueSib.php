@@ -4,7 +4,6 @@
  * @package     Sendinblue_Sendinblue
  * URL:  https:www.sendinblue.com
  */
-
 namespace Sendinblue\Sendinblue\Model;
 
 use Magento\Backend\Model\Auth\Session as BackendAuthSession;
@@ -13,6 +12,7 @@ use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerC
 use Magento\Customer\Api\CustomerRepositoryInterface as CustomerRepository;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
+use Magento\Framework\Message\ManagerInterface as MessageManager;
 
 /**
  * @FIXME this class is too long, split in more Model classes
@@ -24,51 +24,47 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     /**
      * @var \Magento\Config\Model\ResourceModel\Config
      */
-    public $_resourceConfig;
+    protected $_resourceConfig;
     /**
      * @var \Magento\Framework\App\Config\ScopeConfigInterface
      */
-    public $_getValueDefault;
+    protected $_getValueDefault;
     /**
      * @var \Magento\Framework\Filesystem\DirectoryList
      */
-    public $_dir;
+    protected $_dir;
     /**
      * @var \Magento\Customer\Model\Customer
      */
-    public $_customers;
+    protected $_customers;
     /**
      * @var \Magento\Newsletter\Model\ResourceModel\Subscriber
      */
-    public $_subscriber;
+    protected $_subscriber;
     /**
      * @var \Magento\Framework\App\ResourceConnection
      */
-    public $_resource;
+    protected $_resource;
     /**
      * @var \Magento\Store\Model\StoreManagerInterface
      */
-    public $_storeManagerInterface;
+    protected $_storeManagerInterface;
     /**
      * @var \Magento\Sales\Model\ResourceModel\Order\CollectionFactory
      */
-    public $_orderCollectionFactory;
+    protected $_orderCollectionFactory;
     /**
      * @var \Magento\Framework\Setup\ModuleDataSetupInterface
      */
-    public $_getTb;
+    protected $_getTb;
     /**
      * @var \Magento\Framework\View\Element\Template
      */
-    public $_blocktemp;
+    protected $_blocktemp;
     /**
-     * @var \Sendinblue\Sendinblue\Model\MmailinFactory
+     * @var \Sendinblue\Sendinblue\Model\SibClientFactory
      */
-    protected $mailingFactory;
-    /**
-     * @var \Sendinblue\Sendinblue\Model\SendinblueSibClientFactory
-     */
-    protected $sendinblueSibClientFactory;
+    protected $sibClientFactory;
     /**
      * @var CustomerAddressRepository
      */
@@ -89,22 +85,25 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @var CustomerRepository
      */
     protected $customerRepository;
-
-    public $_storeId;
-
-    public $_scopeTypeDefault;
-
-    public $apiKey;
-
+    protected $_storeId;
+    protected $_scopeTypeDefault;
+    protected $apiKey;
     /**
      * @var BackendAuthSession
      */
     protected $backendAuthSession;
-
     /**
      * @var \Magento\User\Model\User|null
      */
     protected $currentAdminUser = null;
+    /**
+     * @var MessageManager
+     */
+    protected $messageManager;
+    /**
+     * @var \Sendinblue\Sendinblue\Model\SibClient|null
+     */
+    protected $sibClient = null;
 
     /**
      * SendinblueSib constructor.
@@ -121,12 +120,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param \Magento\Framework\View\Element\Template $blocktemp
      * @param CustomerCollectionFactory $customerCollectionFactory
      * @param BackendAuthSession $backendAuthSession
-     * @param MmailinFactory $mailingFactory
-     * @param SendinblueSibClientFactory $sendinblueSibClientFactory
+     * @param SibClientFactory $sibClientFactory
      * @param CustomerAddressRepository $customerAddressRepository
      * @param CustomerRepository $customerRepository
      * @param OrderCollectionFactory $orderCollectionFactory
      * @param ConfigHelper $configHelper
+     * @param MessageManager $messageManager
      */
     public function __construct(
         \Magento\Config\Model\ResourceModel\Config $resourceConfig,
@@ -142,12 +141,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         \Magento\Framework\View\Element\Template $blocktemp,
         CustomerCollectionFactory $customerCollectionFactory,
         BackendAuthSession $backendAuthSession,
-        MmailinFactory $mailingFactory,
-        SendinblueSibClientFactory $sendinblueSibClientFactory,
+        SibClientFactory $sibClientFactory,
         CustomerAddressRepository $customerAddressRepository,
         CustomerRepository $customerRepository,
         OrderCollectionFactory $orderCollectionFactory,
-        ConfigHelper $configHelper
+        ConfigHelper $configHelper,
+        MessageManager $messageManager
     )
     {
         $this->_orderCollectionFactory = $salesOrderCollectionFactory;
@@ -164,16 +163,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $this->_blocktemp = $blocktemp;
         $this->customerCollectionFactory = $customerCollectionFactory;
         $this->backendAuthSession = $backendAuthSession;
-        $this->mailingFactory = $mailingFactory;
-        $this->sendinblueSibClientFactory = $sendinblueSibClientFactory;
+        $this->sibClientFactory = $sibClientFactory;
         $this->customerAddressRepository = $customerAddressRepository;
         $this->orderCollectionFactory = $orderCollectionFactory;
         $this->configHelper = $configHelper;
         $this->customerRepository = $customerRepository;
-        /**
-         * To create Api v3 by v2. When someone update our plugin
-         */
-        $this->checkAndCreateV3byV2();
+        $this->messageManager = $messageManager;
     }
 
     /**
@@ -195,13 +190,13 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     {
         $result = $this->checkFolderList($key);
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient($key);
+        $sibClient = $this->createSibClient($key);
 
         if ($result == false) {
-            $response = $mailin->createFolder(array("name" => "magento"));
-            if (SendinblueSibClient::RESPONSE_CODE_CREATED == $mailin->getLastResponseCode()) {
+            $response = $sibClient->createFolder(array("name" => "magento"));
+            if (SibClient::RESPONSE_CODE_CREATED == $sibClient->getLastResponseCode()) {
                 $this->createNewList($key, $response["id"]);
             }
         } else {
@@ -224,11 +219,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $list = 'magento' . date('dmY');
         }
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient($key);
-        $response = $mailin->createList(array("name" => $list, "folderId" => $folder));
-        if (SendinblueSibClient::RESPONSE_CODE_CREATED == $mailin->getLastResponseCode()) {
+        $sibClient = $this->createSibClient($key);
+        $response = $sibClient->createList(array("name" => $list, "folderId" => $folder));
+        if (SibClient::RESPONSE_CODE_CREATED == $sibClient->getLastResponseCode()) {
             $this->_resourceConfig->saveConfig('sendinblue/selected_list_data', $response['id'], $this->_scopeTypeDefault, $this->_storeId);
         }
     }
@@ -243,14 +238,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function checkApikey($key)
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient($key);
+        $sibClient = $this->createSibClient($key);
         /**
          * @var \SendinBlue\Client\Model\GetAccount $keyResponse
          */
-        $keyResponse = $mailin->getAccount();
-        if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
+        $keyResponse = $sibClient->getAccount();
+        if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
             $resp = $this->pluginDateLangConfig($keyResponse);
             return $resp;
         }
@@ -266,46 +261,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function pluginDateLangConfig($account)
     {
         $lang = 'en';
-        $date_format = 'dd-mm-yyyy';
+        $dateFormat = 'dd-mm-yyyy';
         if ("france" == strtolower($account->getAddress()->getCountry())) {
-            $date_format = 'mm-dd-yyyy';
+            $dateFormat = 'mm-dd-yyyy';
             $lang = 'fr';
         }
         $this->updateDbData('sendin_config_lang', $lang);
-        $this->updateDbData('sendin_date_format', $date_format);
-        return array("lang" => $lang, "date_format" => $date_format);
-    }
-
-    /**
-     * Create v3 using v2
-     * @return bool|void
-     */
-    public function checkAndCreateV3byV2()
-    {
-        try {
-            $key_v3 = $this->_getValueDefault->getValue('sendinblue/api_key_v3', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-            if (!empty($key_v3)) {
-                return true;
-            }
-            $key_v2 = $this->_getValueDefault->getValue('sendinblue/api_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-            if (empty($key_v2)) {
-                return false;
-            }
-            /**
-             * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
-             */
-            $mailin = $this->createObjMailin($key_v2);
-            $response = $mailin->generateApiV3Key();
-            if ($response['code'] == 'success') {
-                $this->_resourceConfig->saveConfig('sendinblue/api_key_v3', $response['data']['value'], $this->_scopeTypeDefault, $this->_storeId);
-            }
-        } catch (\Exception $e) {
-            $this->messageManager->addError(
-                __('API key V3 not created.')
-            );
-            $this->_redirect('sendinblue/sib/index');
-            return;
-        }
+        $this->updateDbData('sendin_date_format', $dateFormat);
+        return array("lang" => $lang, "date_format" => $dateFormat);
     }
 
     /**
@@ -317,29 +280,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function getResultListValue()
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
-        $response = $mailin->getAllLists();
-        if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
+        $sibClient = $this->createSibClient();
+        $response = $sibClient->getAllLists();
+        if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
             return $response;
         }
         return array("lists" => array(), "count" => 0);
-    }
-
-    /**
-     * create object for access data from Sendinblue threw API call.
-     *
-     * @param $apiKey
-     * @return Mmailin
-     * @throws \Exception
-     */
-    public function createObjMailin($apiKey)
-    {
-        if (!empty($apiKey)) {
-            $params['api_key'] = $apiKey;
-            $this->mailingFactory->create($params);
-        }
     }
 
     /**
@@ -348,12 +296,16 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param string $key
      * @return mixed
      */
-    public function createObjSibClient($key = '')
+    public function createSibClient($key = '')
     {
         if ($key === '') {
             $key = $this->getDbData('api_key_v3');
         }
-        return $this->sendinblueSibClientFactory->create()->setApiKey($key);
+        if ($this->sibClient === null || $this->sibClient->getApiKey() === null) {
+            $this->sibClient = $this->sibClientFactory->create();
+            $this->sibClient->setApiKey($key);
+        }
+        return $this->sibClient;
     }
 
     /**
@@ -380,13 +332,13 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $requiredAttr["transactional"] = $this->configHelper->getTransactionalSubscriptionAttributes();
 
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient($key);
+        $sibClient = $this->createSibClient($key);
         /**
          * @var \SendinBlue\Client\Model\GetAttributes $attr_list
          */
-        $attrList = $mailin->getAttributes();
+        $attrList = $sibClient->getAttributes();
         $attrExist = array();
 
         if ($attrList !== null && $attrList->getAttributes()) {
@@ -415,22 +367,22 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 
         // To create normal attributes
         foreach ($requiredAttr["normal"] as $key => $value) {
-            $mailin->createAttribute("normal", $value["name"], array("type" => $value["type"]));
+            $sibClient->createAttribute("normal", $value["name"], array("type" => $value["type"]));
         }
 
         // To create transactional attributes
         foreach ($requiredAttr["transactional"] as $key => $value) {
-            $mailin->createAttribute("transactional", $value["name"], array("type" => $value["type"]));
+            $sibClient->createAttribute("transactional", $value["name"], array("type" => $value["type"]));
         }
 
         // To create calculated attributes
         foreach ($requiredAttr["calculated"] as $key => $value) {
-            $mailin->createAttribute("calculated", $value["name"], array("value" => $value["value"]));
+            $sibClient->createAttribute("calculated", $value["name"], array("value" => $value["value"]));
         }
 
         // To create global attributes
         foreach ($requiredAttr["global"] as $key => $value) {
-            $mailin->createAttribute("global", $value["name"], array("value" => $value["value"]));
+            $sibClient->createAttribute("global", $value["name"], array("value" => $value["value"]));
         }
     }
 
@@ -445,10 +397,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function checkFolderList($key)
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient($key);
-        $response = $mailin->getFoldersAll();
+        $sibClient = $this->createSibClient($key);
+        $response = $sibClient->getFoldersAll();
         $listFolder = array();
         $folder = array();
 
@@ -464,7 +416,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             return false;
         }
         $listFolder["folder"] = $folder;
-        $response2 = $mailin->getAllLists($folder["id"]);
+        $response2 = $sibClient->getAllLists($folder["id"]);
 
         if (empty($response2["lists"])) {
             return $listFolder;
@@ -486,8 +438,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param $listId
      * @return int
      * @throws \Magento\Framework\Exception\FileSystemException
+     * @throws \Magento\Framework\Exception\LocalizedException
      * @throws \Magento\Framework\Exception\NoSuchEntityException
-     * @throws \SendinBlue\Client\ApiException
      */
     public function sendAllMailIDToSendin($listId)
     {
@@ -498,18 +450,18 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $this->updateDbData('import_old_user_status', 1);
             $userDataInformation = array();
             /**
-             * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailinObj
+             * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
              */
-            $mailinObj = $this->createObjSibClient();
+            $sibClient = $this->createSibClient();
             $userDataInformation['fileUrl'] = $mediaUrl . 'sendinblue_csv/' . $this->getDbData('sendin_csv_file_name') . '.csv';
             $userDataInformation['listIds'] = array(intval($listId));
             try {
-                $mailinObj->importUsers($userDataInformation);
+                $sibClient->importUsers($userDataInformation);
             } catch (\Exception $e) {
                 //@FIXME do something... 500 error not managed
             }
             $this->updateDbData('selected_list_data', trim($listId));
-            if (SendinblueSibClient::RESPONSE_CODE_ACCEPTED == $mailinObj->getLastResponseCode()) {
+            if (SibClient::RESPONSE_CODE_ACCEPTED == $sibClient->getLastResponseCode()) {
                 $this->updateDbData('import_old_user_status', 0);
                 return 0;
             }
@@ -524,6 +476,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      *
      * @return int|void
      * @throws \Magento\Framework\Exception\FileSystemException
+     * @throws \Magento\Framework\Exception\LocalizedException
      */
     public function getSubscribeCustomer()
     {
@@ -736,11 +689,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function templateDisplay()
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
-        $response = $mailin->getAllEmailTemplates();
-        if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
+        $sibClient = $this->createSibClient();
+        $response = $sibClient->getAllEmailTemplates();
+        if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
             return $response;
         }
         return array("templates" => array(), "count" => 0);
@@ -756,14 +709,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     {
         if ($this->configHelper->isServiceActive()) {
             /**
-             * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+             * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
              */
-            $mailin = $this->createObjSibClient();
+            $sibClient = $this->createSibClient();
             /**
              * @var \SendinBlue\Client\Model\GetAccount $dataResp
              */
-            $dataResp = $mailin->getAccount();
-            if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
+            $dataResp = $sibClient->getAccount();
+            if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
                 foreach ($dataResp->getPlan() as $accountVal) {
                     if ($accountVal->getType() == 'sms') {
                         return $accountVal->getCredits();
@@ -780,11 +733,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function updateSender()
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
-        $response = $mailin->getSenders();
-        if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
+        $sibClient = $this->createSibClient();
+        $response = $sibClient->getSenders();
+        if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
             $senders = array('id' => $response->getSenders()[0]->getId(), 'from_name' => $response->getSenders()[0]->getName(), 'from_email' => $response->getSenders()[0]->getEmail());
             $this->updateDbData('sendin_sender_value', json_encode($senders));
         }
@@ -799,22 +752,19 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function checkFolderListDoubleoptin()
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
-        $dataApi = array("page" => 1,
-            "page_limit" => 50
+        $sibClient = $this->createSibClient();
+        $dataApi = array("offset" => 1,
+            "limit" => 50
         );
-        $folderResp = array();
-        $listResp = array();
-        $folderResp = $mailin->getFolders();
-        //folder id
+        $folderResp = $sibClient->getFolders($dataApi);
         $sArray = array();
         $returnVal = false;
         if (!empty($folderResp['folders'])) {
             foreach ($folderResp['folders'] as $value) {
                 if (strtolower($value['name']) == 'form') {
-                    $listResp = $mailin->getAllLists($value['id']);
+                    $listResp = $sibClient->getAllLists($value['id']);
                     if (!empty($listResp['lists'])) {
                         foreach ($listResp['lists'] as $val) {
                             if ($val['name'] == 'Temp - DOUBLE OPTIN') {
@@ -839,11 +789,11 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function trackingSmtp()
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailinObj
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailinObj = $this->createObjSibClient();
-        $smtpDetails = $mailinObj->getAccount();
-        if (SendinblueSibClient::RESPONSE_CODE_OK == $mailinObj->getLastResponseCode()) {
+        $sibClient = $this->createSibClient();
+        $smtpDetails = $sibClient->getAccount();
+        if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
             return $smtpDetails;
         }
         return false;
@@ -907,18 +857,18 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $userDataInformation = array();
         $listIdVal = array_map('intval', explode('|', $listId));
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailinObj
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailinObj = $this->createObjSibClient();
+        $sibClient = $this->createSibClient();
         $baseUrl = $this->_storeManagerInterface->getStore()->getBaseUrl(\Magento\Framework\UrlInterface::URL_TYPE_MEDIA);
         $userDataInformation['fileUrl'] = $baseUrl . 'sendinblue_csv/ImportOldOrdersToSendinblue.csv';
         $userDataInformation['listIds'] = $listIdVal;
         try {
-            $mailinObj->importUsers($userDataInformation);
+            $sibClient->importUsers($userDataInformation);
         } catch (\Exception $e) {
             //500 error (file not found maybe)
         }
-        if (SendinblueSibClient::RESPONSE_CODE_ACCEPTED === $mailinObj->getLastResponseCode()) {
+        if (SibClient::RESPONSE_CODE_ACCEPTED === $sibClient->getLastResponseCode()) {
             return 1;
         }
         $this->updateDbData('order_import_status', 0);
@@ -1064,9 +1014,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function sendSmsApi($dataSms)
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
+        $sibClient = $this->createSibClient();
         $dataFinal = array("recipient" => trim($dataSms['to']),
             "sender" => trim($dataSms['from']),
             "content" => trim($dataSms['text']),
@@ -1074,8 +1024,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             "source" => "api",
             "plugin" => "sendinblue-magento-plugin"
         );
-        $dataResp = $mailin->sendSms($dataFinal);
-        if (SendinblueSibClient::RESPONSE_CODE_CREATED === $mailin->getLastResponseCode()) {
+        $dataResp = $sibClient->sendSms($dataFinal);
+        if (SibClient::RESPONSE_CODE_CREATED === $sibClient->getLastResponseCode()) {
             $notifyLimit = $this->getDbData('notify_value');
             $emailSendStatus = $this->getDbData('notify_email_send');
             if (!empty($notifyLimit) && $dataResp->getRemainingCredits() <= $notifyLimit && $emailSendStatus == 0) {
@@ -1168,18 +1118,18 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $listValue = array_map('intval', explode('|', $listId));
 
             /**
-             * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+             * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
              */
-            $mailin = $this->createObjSibClient();
+            $sibClient = $this->createSibClient();
             $data = array("name" => $campName,
                 "sender" => $senderCampaign,
                 "content" => $content,
                 "recipients" => array("listIds" => $listValue),
                 "scheduledAt" => $scheduleTime
             );
-            $mailin->createSmsCampaign($data);
+            $sibClient->createSmsCampaign($data);
 
-            if (SendinblueSibClient::RESPONSE_CODE_CREATED === $mailin->getLastResponseCode()) {
+            if (SibClient::RESPONSE_CODE_CREATED === $sibClient->getLastResponseCode()) {
                 return 'success';
             } else {
                 return 'fail';
@@ -1193,6 +1143,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      *
      * @param $post
      * @return string
+     * @throws \Magento\Framework\Exception\LocalizedException
      * @throws \Magento\Framework\Exception\NoSuchEntityException
      * @throws \SendinBlue\Client\ApiException
      * @throws \Zend_Mail_Exception
@@ -1250,9 +1201,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         }
 
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
+        $sibClient = $this->createSibClient();
 
         $data = array("email" => $userEmail,
             "attributes" => $updateDataInSib,
@@ -1262,7 +1213,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             "listIds" => array_map('intval', explode('|', $listId))
         );
 
-        $mailin->createUser($data);
+        $sibClient->createUser($data);
     }
 
     /**
@@ -1288,10 +1239,10 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         }
 
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
-        $mailin->updateUser($userEmail, array('emailBlacklisted' => true, "smsBlacklisted" => true));
+        $sibClient = $this->createSibClient();
+        $sibClient->updateUser($userEmail, array('emailBlacklisted' => true, "smsBlacklisted" => true));
     }
 
     /**
@@ -1412,9 +1363,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function sendWsTemplateMail($to)
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
+        $sibClient = $this->createSibClient();
 
         $sendinConfirmType = $this->getDbData('confirm_type');
         if (empty($sendinConfirmType) || $sendinConfirmType == 'nocon') {
@@ -1427,8 +1378,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         }
 
         if ($sendinConfirmType == 'doubleoptin') {
-            $pathResp = '';
-            $senderEmail = '';
 
             $path = $this->_storeManagerInterface->getStore()->getBaseUrl() . 'sendinblue';
             $siteName = $this->_storeManagerInterface->getStore()->getName();
@@ -1446,8 +1395,8 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $doubleOptinTempId = $this->getDbData('doubleoptin_template_id');
 
             if (intval($doubleOptinTempId) > 0) {
-                $response = $mailin->getTemplateById($doubleOptinTempId);
-                if (SendinblueSibClient::RESPONSE_CODE_OK == $mailin->getLastResponseCode()) {
+                $response = $sibClient->getTemplateById($doubleOptinTempId);
+                if (SibClient::RESPONSE_CODE_OK == $sibClient->getLastResponseCode()) {
                     $htmlContent = $response->getHtmlContent();
                     if (trim($response['subject']) != '') {
                         $subject = trim($response['subject']);
@@ -1489,7 +1438,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
                 "htmlContent" => $htmlContent,
                 "headers" => $headers,
             );
-            return $mailin->sendEmail($data);
+            return $sibClient->sendEmail($data);
         }
 
         // should be the campaign id of template created on mailin. Please remember this template should be active than only it will be sent, otherwise it will return error.
@@ -1498,7 +1447,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $data = array("templateId" => intval($templateId),
             "to" => array(array("email" => $to))
         );
-        $mailin->sendTransactionalTemplate($data);
+        $sibClient->sendTransactionalTemplate($data);
     }
 
     /**
@@ -1512,13 +1461,13 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     public function sendOptinConfirmMailResponce($customerEmail, $finalId)
     {
         /**
-         * @var \Sendinblue\Sendinblue\Model\SendinblueSibClient $mailin
+         * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
          */
-        $mailin = $this->createObjSibClient();
+        $sibClient = $this->createSibClient();
         $data = array("templateId" => intval($finalId),
             "to" => array(array("email" => $customerEmail))
         );
-        $mailin->sendTransactionalTemplate($data);
+        $sibClient->sendTransactionalTemplate($data);
     }
 
     /**
@@ -1545,6 +1494,5 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     {
         return $this->_getTb->getTable($tableName);
     }
-
 }
 

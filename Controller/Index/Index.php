@@ -42,7 +42,8 @@ class Index extends \Magento\Framework\App\Action\Action
     }
 
     /**
-     * @return \Magento\Framework\App\ResponseInterface|\Magento\Framework\Controller\ResultInterface|\Magento\Framework\View\Result\Page
+     * @return \Magento\Framework\App\ResponseInterface|\Magento\Framework\Controller\ResultInterface|void
+     * @throws \SendinBlue\Client\ApiException
      */
     public function execute()
     {
@@ -54,7 +55,9 @@ class Index extends \Magento\Framework\App\Action\Action
     /**
      * @TODO Used from external? No control here, no security... must be changed or removed
      * Get response, send confirm subscription mail and redirect in given url
+     *
      * @param $userEmail
+     * @throws \SendinBlue\Client\ApiException
      */
     public function dubleoptinProcess($userEmail)
     {
@@ -63,7 +66,10 @@ class Index extends \Magento\Framework\App\Action\Action
             $optinListId = $this->_model->getDbData('optin_list_id');
             $listId = $this->_model->getDbData('selected_list_data');
 
-            $mailin = $this->_model->createObjSibClient();
+            /**
+             * @var \Sendinblue\Sendinblue\Model\SibClient $sibClient
+             */
+            $sibClient = $this->_model->createSibClient();
 
             $data = array(
                     "attributes" => array("DOUBLE_OPT-IN"=>'1'),
@@ -73,7 +79,7 @@ class Index extends \Magento\Framework\App\Action\Action
                     "smsBlacklisted" => false
                 );
 
-            $mailin->updateUser($userEmail, $data);
+            $sibClient->updateUser($userEmail, $data);
 
             $confirmEmail = $this->_model->getDbData('final_confirm_email');
             if ($confirmEmail === 'yes') {
