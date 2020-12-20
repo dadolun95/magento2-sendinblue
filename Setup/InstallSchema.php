@@ -1,9 +1,9 @@
 <?php
 /**
- * Copyright © 2016 Magento. All rights reserved.
- * See COPYING.txt for license details.
+ * @category    Magento 2
+ * @package     Sendinblue_Sendinblue
+ * URL:  https:www.sendinblue.com
  */
-
 namespace Sendinblue\Sendinblue\Setup;
 
 use Magento\Framework\Setup\InstallSchemaInterface;
@@ -28,8 +28,8 @@ class InstallSchema implements InstallSchemaInterface
 
         $installer->startSetup();
 
-       /* Create table 'sendinblue_country_codes'
-         */
+        /* Create table 'sendinblue_country_codes'
+          */
         $table = $installer->getConnection()->newTable(
             $installer->getTable('sendinblue_country_codes')
         )->addColumn(
