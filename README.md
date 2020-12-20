@@ -50,5 +50,8 @@ bin/magento setup:di:compile
 bin/magento setup:upgrade
 ```
 
+## Contributing
+Contributions are very welcome. In order to contribute, please fork this repository and submit a [pull request](https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request).
+
 ## License
 The code is licensed under [Open Software License ("OSL") v. 3.0](http://opensource.org/licenses/osl-3.0.php).
