@@ -10,6 +10,9 @@ use Magento\Backend\App\Action;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
 use Magento\Backend\Block\Template as BackendBlockTemplate;
 use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
+use Magento\Store\Model\StoreManagerInterface;
+use Magento\Newsletter\Model\ResourceModel\Subscriber\CollectionFactory as NewsletterSubscriberCollectionFactory;
+use Magento\Newsletter\Model\SubscriberFactory;
 
 /**
  * Class Ajax
@@ -23,16 +26,26 @@ class Ajax extends \Magento\Backend\App\Action
      * @var SendinblueSib
      */
     protected $sendinblueSib;
-
     /**
      * @var BackendBlockTemplate
      */
     protected $backendBlockTemplate;
-
     /**
      * @var CustomerAddressRepository
      */
     protected $customerAddressRepository;
+    /**
+     * @var StoreManagerInterface
+     */
+    protected $storeManager;
+    /**
+     * @var NewsletterSubscriberCollectionFactory
+     */
+    protected $newsletterCollectionFactory;
+    /**
+     * @var SubscriberFactory
+     */
+    protected $subscriberFactory;
 
     /**
      * Ajax constructor.
@@ -40,17 +53,26 @@ class Ajax extends \Magento\Backend\App\Action
      * @param SendinblueSib $sendinblueSib
      * @param BackendBlockTemplate $backendBlockTemplate
      * @param CustomerAddressRepository $customerAddressRepository
+     * @param StoreManagerInterface $storeManager
+     * @param NewsletterSubscriberCollectionFactory $newsletterCollectionFactory
+     * @param SubscriberFactory $subscriberFactory
      */
     public function __construct(
         Action\Context $context,
         SendinblueSib $sendinblueSib,
         BackendBlockTemplate $backendBlockTemplate,
-        CustomerAddressRepository $customerAddressRepository
+        CustomerAddressRepository $customerAddressRepository,
+        StoreManagerInterface $storeManager,
+        NewsletterSubscriberCollectionFactory $newsletterCollectionFactory,
+        SubscriberFactory $subscriberFactory
     )
     {
         $this->backendBlockTemplate = $backendBlockTemplate;
         $this->sendinblueSib = $sendinblueSib;
         $this->customerAddressRepository = $customerAddressRepository;
+        $this->storeManager = $storeManager;
+        $this->newsletterCollectionFactory = $newsletterCollectionFactory;
+        $this->subscriberFactory = $subscriberFactory;
         parent::__construct($context);
     }
 
@@ -286,12 +308,10 @@ class Ajax extends \Magento\Backend\App\Action
         if ($post['import_order_data'] == 1) {
             $respData = $model->importOrderhistory();
             if ($respData) {
-                die("CIAO 1");
                 $msgVal .= __('Order history has been import successfully');
                 $this->getResponse()->setHeader('Content-type', 'application/text');
                 $this->getResponse()->setBody($msgVal);
             } else {
-                die("CIAO 2");
                 $msgVal .= __('Order history has not been imported successfully');
                 $this->getResponse()->setHeader('Content-type', 'application/text');
                 $this->getResponse()->setBody($msgVal);
@@ -441,17 +461,17 @@ class Ajax extends \Magento\Backend\App\Action
                      */
                     $sibClient = $model->createSibClient();
 
-                    $data = ["name"=> "FORM"];
-                    $folderRes = $sibClient->createFolder($data);
-                    $folderId = $folderRes['data']['id'];
+                        $data = ["name"=> "FORM"];
+                        $folderRes = $sibClient->createFolder($data);
+                        $folderId = $folderRes['data']['id'];
 
-                    $data = [
-                        "list_name" => 'Temp - DOUBLE OPTIN',
-                        "list_parent" => $folderId
-                    ];
-                    $listResp = $sibClient->createList($data);
-                    $listId = $listResp['data']['id'];
-                    $model->updateDbData('optin_list_id', $listId);
+                        $data = [
+                          "list_name" => 'Temp - DOUBLE OPTIN',
+                          "list_parent" => $folderId
+                        ];
+                        $listResp = $sibClient->createList($data);
+                        $listId = $listResp['data']['id'];
+                        $model->updateDbData('optin_list_id', $listId);
                 }
             }
         }
@@ -470,7 +490,6 @@ class Ajax extends \Magento\Backend\App\Action
     }
 
     /**
-     * @FIXME use subscriber newsletter collection instead of direct db queries
      * subscribe contact from contact list
      *
      * @throws \Magento\Framework\Exception\LocalizedException
@@ -480,22 +499,18 @@ class Ajax extends \Magento\Backend\App\Action
     public function subsUnsubsContact()
     {
         $model = $this->sibObject();
-        $connection = $model->createDbConnection();
-        $tblNewsletter = $model->tbWithPrefix('newsletter_subscriber');
         $post = $this->getRequest()->getPostValue();
         $updateDataInSib = [];
         $email = !empty($post['email']) ? $post['email'] : '';
         $postNewsLetter = !empty($post['newsletter']) ? $post['newsletter'] : '';
         $templateSubscribeStatus = ($postNewsLetter == 0) ? 1 : 3;
+        $subscriberData = null;
 
         if (!empty($email) && $postNewsLetter == 0) {
-            $storeId = $model->_storeManagerInterface->getStore()->getId();
-            $model->_customers->setWebsiteId($storeId);
             $dataCust = $model->getCustomerByEmail($email);
             $customer = $dataCust->getData();
             if (isset($customer['entity_id']) > 0) {
                 $billingId = !empty($customer['default_billing']) ? $customer['default_billing'] : '';
-                $telephone = '';
                 $firstName = $customer['firstname'];
                 $lastName = $customer['lastname'];
                 $storeView = $customer['created_in'];
@@ -503,14 +518,14 @@ class Ajax extends \Magento\Backend\App\Action
                 $localeLang = $model->getDbData('sendin_config_lang');
                 if (!empty($firstName)) {
                     if ($localeLang == 'fr') {
-                        $updateDataInSib['PRENOM'] = $firstName;
+                      $updateDataInSib['PRENOM'] = $firstName;
                     } else {
-                        $updateDataInSib['NAME'] = $firstName;
+                      $updateDataInSib['NAME'] = $firstName;
                     }
                 }
                 if (!empty($lastName)) {
                     if ($localeLang == 'fr') {
-                        $updateDataInSib['NOM'] = $lastName;
+                      $updateDataInSib['NOM'] = $lastName;
                     } else {
                         $updateDataInSib['SURNAME'] = $lastName;
                     }
@@ -552,14 +567,16 @@ class Ajax extends \Magento\Backend\App\Action
                 }
                 $model->subscribeByruntime($email, $updateDataInSib);
             } else {
-                $subscriberData = $connection->fetchAll('SELECT `store_id` FROM `'.$tblNewsletter.'` WHERE subscriber_email ='."'$email'");
+                $subscriberData = $this->newsletterCollectionFactory->create()
+                    ->addFieldToFilter('subscriber_email', $email)
+                    ->getFirstItem();
 
                 $updateDataInSib['CLIENT'] = 0;
-                $storeId = !empty($subscriberData[0]['store_id']) ? $subscriberData[0]['store_id'] : '';
+                $storeId = !empty($subscriberData) ? $subscriberData->getStoreId() : '';
                 if (!empty($storeId)) {
                     $updateDataInSib['STORE_ID'] = $storeId;
                 }
-                $stores = $model->_storeManagerInterface->getStores(true, false);
+                $stores = $this->storeManager->getStores(true, false);
                 foreach ($stores as $store) {
                     if ($store->getId() == $storeId) {
                         $storeView = $store->getName();
@@ -570,29 +587,28 @@ class Ajax extends \Magento\Backend\App\Action
                 }
                 $model->subscribeByruntime($email, $updateDataInSib);
             }
-            //first check and then update and insert
-            $newsData = $connection->fetchAll('SELECT * FROM `'.$tblNewsletter.'` WHERE subscriber_email ='."'$email'");
 
-            if (empty($newsData[0]['subscriber_email'])) {
-                $newsLetterData = [
-                    "store_id" => $customer['store_id'],
-                    "customer_id" => $customer['entity_id'],
-                    "subscriber_email" => $email,
-                    "change_status_at" => date('Y-m-d H:i:s'),
-                    "subscriber_status" => 1,
-                ];
-                $connection->insert($tblNewsletter, $newsLetterData);
+            if ($subscriberData && $subscriberData->getId()) {
+                $subscriber = $this->subscriberFactory->create()
+                    ->setStoreId($customer['store_id'])
+                    ->setCustomerId($customer['entity_id'])
+                    ->setSubscriberEmail($email)
+                    ->setChangeStatusAt(date('Y-m-d H:i:s'))
+                    ->setSubscriberStatus(1);
+                $subscriber->save();
             } else {
-                $newsLetterData = ['subscriber_status' => $templateSubscribeStatus];
-                $condition = ['subscriber_email = ?'=> $email];
-                $connection->update($tblNewsletter, $newsLetterData, $condition);
+                $subscriber = $this->subscriberFactory->create()->loadByEmail($email);
+                if ($subscriber->getId()) {
+                    $subscriber->setSubscriberStatus($templateSubscribeStatus);
+                    $subscriber->save();
+                }
             }
         } else {
             $model->unsubscribeByruntime($email);
-            $newsLetterData = ['subscriber_status' => $templateSubscribeStatus];
-            $condition = ['subscriber_email = ?'=> $email];
-            if (!empty($email)) {
-                $connection->update($tblNewsletter, $newsLetterData, $condition);
+            $subscriber = $this->subscriberFactory->create()->loadByEmail($email);
+            if ($subscriber->getId()) {
+                $subscriber->setSubscriberStatus($templateSubscribeStatus);
+                $subscriber->save();
             }
         }
     }

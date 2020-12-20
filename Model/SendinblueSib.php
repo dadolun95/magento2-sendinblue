@@ -13,6 +13,7 @@ use Magento\Customer\Api\CustomerRepositoryInterface as CustomerRepository;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
 use Magento\Framework\Message\ManagerInterface as MessageManager;
+use Magento\Newsletter\Model\ResourceModel\Subscriber\CollectionFactory as NewsletterSubscriberCollectionFactory;
 
 /**
  * @FIXME this class is too long, split in more Model classes
@@ -22,25 +23,9 @@ use Magento\Framework\Message\ManagerInterface as MessageManager;
 class SendinblueSib extends \Magento\Framework\Model\AbstractModel
 {
     /**
-     * @var \Magento\Config\Model\ResourceModel\Config
-     */
-    protected $_resourceConfig;
-    /**
-     * @var \Magento\Framework\App\Config\ScopeConfigInterface
-     */
-    protected $_getValueDefault;
-    /**
      * @var \Magento\Framework\Filesystem\DirectoryList
      */
     protected $_dir;
-    /**
-     * @var \Magento\Customer\Model\Customer
-     */
-    protected $_customers;
-    /**
-     * @var \Magento\Newsletter\Model\ResourceModel\Subscriber
-     */
-    protected $_subscriber;
     /**
      * @var \Magento\Framework\App\ResourceConnection
      */
@@ -50,17 +35,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     protected $_storeManagerInterface;
     /**
-     * @var \Magento\Sales\Model\ResourceModel\Order\CollectionFactory
-     */
-    protected $_orderCollectionFactory;
-    /**
      * @var \Magento\Framework\Setup\ModuleDataSetupInterface
      */
     protected $_getTb;
-    /**
-     * @var \Magento\Framework\View\Element\Template
-     */
-    protected $_blocktemp;
     /**
      * @var \Sendinblue\Sendinblue\Model\SibClientFactory
      */
@@ -85,9 +62,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @var CustomerRepository
      */
     protected $customerRepository;
-    protected $_storeId;
-    protected $_scopeTypeDefault;
-    protected $apiKey;
     /**
      * @var BackendAuthSession
      */
@@ -104,20 +78,21 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @var \Sendinblue\Sendinblue\Model\SibClient|null
      */
     protected $sibClient = null;
+    /**
+     * @var NewsletterSubscriberCollectionFactory
+     */
+    protected $newsletterSubscriberCollectionFactory;
+    /**
+     * @var string
+     */
+    protected $apiKey;
 
     /**
      * SendinblueSib constructor.
-     * @param \Magento\Config\Model\ResourceModel\Config $resourceConfig
-     * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeDefaultType
      * @param \Magento\Framework\Filesystem\DirectoryList $dir
-     * @param \Magento\Store\Model\Store $defaultStoreId
-     * @param \Magento\Customer\Model\Customer $customers
-     * @param \Magento\Newsletter\Model\ResourceModel\Subscriber $subscriber
      * @param \Magento\Framework\App\ResourceConnection $resource
      * @param \Magento\Store\Model\StoreManagerInterface $storeManagerInterface
-     * @param OrderCollectionFactory $salesOrderCollectionFactory
      * @param \Magento\Framework\Setup\ModuleDataSetupInterface $getTb
-     * @param \Magento\Framework\View\Element\Template $blocktemp
      * @param CustomerCollectionFactory $customerCollectionFactory
      * @param BackendAuthSession $backendAuthSession
      * @param SibClientFactory $sibClientFactory
@@ -126,19 +101,13 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      * @param OrderCollectionFactory $orderCollectionFactory
      * @param ConfigHelper $configHelper
      * @param MessageManager $messageManager
+     * @param NewsletterSubscriberCollectionFactory $newsletterSubscriberCollectionFactory
      */
     public function __construct(
-        \Magento\Config\Model\ResourceModel\Config $resourceConfig,
-        \Magento\Framework\App\Config\ScopeConfigInterface $scopeDefaultType,
         \Magento\Framework\Filesystem\DirectoryList $dir,
-        \Magento\Store\Model\Store $defaultStoreId,
-        \Magento\Customer\Model\Customer $customers,
-        \Magento\Newsletter\Model\ResourceModel\Subscriber $subscriber,
         \Magento\Framework\App\ResourceConnection $resource,
         \Magento\Store\Model\StoreManagerInterface $storeManagerInterface,
-        \Magento\Sales\Model\ResourceModel\Order\CollectionFactory $salesOrderCollectionFactory,
         \Magento\Framework\Setup\ModuleDataSetupInterface $getTb,
-        \Magento\Framework\View\Element\Template $blocktemp,
         CustomerCollectionFactory $customerCollectionFactory,
         BackendAuthSession $backendAuthSession,
         SibClientFactory $sibClientFactory,
@@ -146,21 +115,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         CustomerRepository $customerRepository,
         OrderCollectionFactory $orderCollectionFactory,
         ConfigHelper $configHelper,
-        MessageManager $messageManager
+        MessageManager $messageManager,
+        NewsletterSubscriberCollectionFactory $newsletterSubscriberCollectionFactory
     )
     {
-        $this->_orderCollectionFactory = $salesOrderCollectionFactory;
-        $this->_resourceConfig = $resourceConfig;
-        $this->_getValueDefault = $scopeDefaultType;
-        $this->_scopeTypeDefault = $scopeDefaultType::SCOPE_TYPE_DEFAULT;
-        $this->_storeId = $defaultStoreId::DEFAULT_STORE_ID;
         $this->_dir = $dir;
-        $this->_customers = $customers;
-        $this->_subscriber = $subscriber;
         $this->_resource = $resource;
         $this->_storeManagerInterface = $storeManagerInterface;
         $this->_getTb = $getTb;
-        $this->_blocktemp = $blocktemp;
         $this->customerCollectionFactory = $customerCollectionFactory;
         $this->backendAuthSession = $backendAuthSession;
         $this->sibClientFactory = $sibClientFactory;
@@ -169,6 +131,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $this->configHelper = $configHelper;
         $this->customerRepository = $customerRepository;
         $this->messageManager = $messageManager;
+        $this->newsletterSubscriberCollectionFactory = $newsletterSubscriberCollectionFactory;
     }
 
     /**
@@ -224,7 +187,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $sibClient = $this->createSibClient($key);
         $response = $sibClient->createList(array("name" => $list, "folderId" => $folder));
         if (SibClient::RESPONSE_CODE_CREATED == $sibClient->getLastResponseCode()) {
-            $this->_resourceConfig->saveConfig('sendinblue/selected_list_data', $response['id'], $this->_scopeTypeDefault, $this->_storeId);
+            $this->configHelper->updateData('selected_list_data', $response['id']);
         }
     }
 
@@ -471,7 +434,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
     }
 
     /**
-     * @FIXME use subscriber newsletter collection instead of direct db queries
      * Fetches all the subscribers and adds them to the Sendinblue databases
      *
      * @return int|void
@@ -510,9 +472,12 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         $newsLetterData = array();
         $responseByMerge = array();
         $count = 0;
-        $connection = $this->createDbConnection();
-        $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-        $resultSubscriber = $connection->fetchAll('SELECT * FROM `' . $tblNewsletter . '` WHERE subscriber_status=1');
+        /**
+         * @var \Magento\Newsletter\Model\Subscriber[] $resultSubscriber
+         */
+        $resultSubscriber = $this->newsletterSubscriberCollectionFactory->create()
+            ->addFieldToFilter('subscriber_status', 1)
+            ->getItems();
 
         $stores = $this->_storeManagerInterface->getStores(true, false);
         $storeNames = array();
@@ -521,14 +486,14 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         }
 
         foreach ($resultSubscriber as $subsdata) {
-            $subscriberEmail = $subsdata['subscriber_email'];
+            $subscriberEmail = $subsdata->getSubscriberEmail();
 
             if (!empty($customerAddressData[$subscriberEmail])) {
                 $customerAddressData[$subscriberEmail]['email'] = $subscriberEmail;
                 $responseByMerge[$count] = $this->mergeSubscriptionData($attributesName, $customerAddressData[$subscriberEmail], $subscriberEmail);
             } else {
-                $storeId = $subsdata['store_id'];
-                $newsLetterData['client'] = $subsdata['customer_id'] > 0 ? 1 : 0;
+                $storeId = $subsdata->getStoreId();
+                $newsLetterData['client'] = $subsdata->getCustomerId() > 0 ? 1 : 0;
                 $responseByMerge[$count] = $this->mergeSubscriptionData($attributesName, $newsLetterData, $subscriberEmail);
                 $responseByMerge[$count]['STORE_ID'] = $storeId;
                 $responseByMerge[$count]['MAGENTO_LANG'] = isset($storeNames[$storeId]) ? $storeNames[$storeId] : '';
@@ -1157,9 +1122,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $mobile = '';
             $arr['from'] = $senderCampaign;
 
-            $customerObj = $this->_customers->getCollection();
-            foreach ($customerObj as $customerObjdata) {
-                $billingId = $customerObjdata->getDefaultBilling();
+            $customerCollection = $this->customerCollectionFactory->create()->getItems();
+            foreach ($customerCollection as $customerData) {
+                $billingId = $customerData->getDefaultBilling();
                 if (!empty($billingId)) {
                     $address = $this->customerAddressRepository->getById($billingId);
                     $smsValue = $address->getTelephone();
