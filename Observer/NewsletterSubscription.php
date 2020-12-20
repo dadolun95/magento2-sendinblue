@@ -10,8 +10,10 @@ use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
 use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
+use Magento\Store\Model\StoreManagerInterface;
 
 /**
+ * @TODO add logs for this observer
  * Class NewsletterSubscription
  * @package Sendinblue\Sendinblue\Observer
  */
@@ -27,6 +29,10 @@ class NewsletterSubscription implements ObserverInterface
      * @var CustomerAddressRepository
      */
     protected $customerAddressRepository;
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
 
     /**
      * SibNlObserver constructor.
@@ -35,11 +41,13 @@ class NewsletterSubscription implements ObserverInterface
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
-        CustomerAddressRepository $customerAddressRepository
+        CustomerAddressRepository $customerAddressRepository,
+        StoreManagerInterface $storeManager
     )
     {
         $this->sendinblueSib = $sendinblueSib;
         $this->customerAddressRepository = $customerAddressRepository;
+        $this->storeManager = $storeManager;
     }
 
     /**
@@ -53,13 +61,14 @@ class NewsletterSubscription implements ObserverInterface
     {
         $model = $this->sendinblueSib;
         $updateDataInSib = [];
-        $subscriberData = $observer->getEvent()->getSubscriber()->getData();
-        $email = $subscriberData['subscriber_email'];
-        $NlStatus = $subscriberData['subscriber_status'];
+        $subscriber = $observer->getEvent()->getSubscriber();
+        $email = $subscriber->getSubscriberEmail();
+        $NlStatus = $subscriber->getSubscriberStatus();
         $sibStatus = $model->syncSetting();
         if ($sibStatus == 1) {
-            if (!empty($subscriberData['customer_id']) && $subscriberData['customer_id'] > 0 && $NlStatus == 1) {
-                $customer = $model->getCustomer($subscriberData['customer_id']);
+            $this->logger->info($subscriber->getId());
+            if ($subscriber->getCustomerId() && $subscriber->getCustomerId() > 0 && $NlStatus == 1) {
+                $customer = $model->getCustomer($subscriber->getCustomerId());
                 $billingId = !empty($customer['default_billing']) ? $customer['default_billing'] : '';
                 $firstName = $customer['firstname'];
                 $lastName = $customer['lastname'];
@@ -119,12 +128,11 @@ class NewsletterSubscription implements ObserverInterface
             } else {
                 if ($NlStatus == 1) {
                     $updateDataInSib['CLIENT'] = 0;
-                    $storeId = $subscriberData['store_id'];
-                    if (!empty($storeId)) {
+                    $storeId = $subscriber->getStoreId();
+                    if ($storeId) {
                         $updateDataInSib['STORE_ID'] = $storeId;
                     }
-                    $storeId = $subscriberData['store_id'];
-                    $stores = $model->_storeManagerInterface->getStores(true, false);
+                    $stores = $this->storeManager->getStores(true, false);
                     foreach ($stores as $store) {
                         if ($store->getId() == $storeId) {
                             $storeView = $store->getName();

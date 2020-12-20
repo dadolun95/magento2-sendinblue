@@ -11,6 +11,7 @@ use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerCollectionFactory;
 use Magento\Customer\Api\CustomerRepositoryInterface as CustomerRepository;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
+use Magento\Setup\Exception;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
 use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Magento\Newsletter\Model\ResourceModel\Subscriber\CollectionFactory as NewsletterSubscriberCollectionFactory;
@@ -1176,7 +1177,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             "updateEnabled" => true,
             "listIds" => array_map('intval', explode('|', $listId))
         );
-
         $sibClient->createUser($data);
     }
 
@@ -1186,7 +1186,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function syncSetting()
     {
-        $this->configHelper->syncSetting();
+        return $this->configHelper->syncSetting();
     }
 
     /**

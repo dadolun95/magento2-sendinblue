@@ -13,6 +13,7 @@ use Sendinblue\Sendinblue\Model\SendinblueSib;
 use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 
 /**
+ * @TODO add logs for this observer
  * Class CheckoutOrderSuccess
  * @package Sendinblue\Sendinblue\Observer
  */

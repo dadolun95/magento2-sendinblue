@@ -11,6 +11,7 @@ use Magento\Framework\Event\ObserverInterface;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
 
 /**
+ * @TODO add logs for this observer
  * Class CustomerRegistration
  * @package Sendinblue\Sendinblue\Observer
  */

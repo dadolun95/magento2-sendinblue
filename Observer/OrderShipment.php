@@ -13,6 +13,7 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
 
 /**
+ * @TODO add logs for this observer
  * Class OrderShipment
  * @package Sendinblue\Sendinblue\Observer
  */
