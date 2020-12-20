@@ -43,12 +43,15 @@ composer require dadolun95/magento2-sendinblue
   * In command line, using "cd", navigate to your Magento 2 root directory
   * Run commands:
 ```
-forllow steps to install module 
+follow steps to install module 
 
 bin/magento module:enable Sendinblue_Sendinblue
 bin/magento setup:di:compile
 bin/magento setup:upgrade
 ```
+
+## Contributing
+Contributions are very welcome. In order to contribute, please fork this repository and submit a [pull request](https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request).
 
 ## License
 The code is licensed under [Open Software License ("OSL") v. 3.0](http://opensource.org/licenses/osl-3.0.php).
