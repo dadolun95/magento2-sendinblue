@@ -26,6 +26,7 @@ use \SendinBlue\Client\Model\CreateSmsCampaign;
 use \SendinBlue\Client\Model\CreateList;
 
 /**
+ * @TODO Add dedicated log for each API call (enable or disable by admin config)
  * Class SendinblueSibClient
  * @package Sendinblue\Sendinblue\Model
  */
