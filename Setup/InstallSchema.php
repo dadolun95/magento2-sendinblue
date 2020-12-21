@@ -27,9 +27,6 @@ class InstallSchema implements InstallSchemaInterface
         $installer = $setup;
 
         $installer->startSetup();
-
-        /* Create table 'sendinblue_country_codes'
-          */
         $table = $installer->getConnection()->newTable(
             $installer->getTable('sendinblue_country_codes')
         )->addColumn(
