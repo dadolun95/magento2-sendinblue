@@ -8,6 +8,7 @@ namespace Sendinblue\Sendinblue\Controller\Index;
 
 use Magento\Framework\App\Action\Context;
 use Sendinblue\Sendinblue\Model\SendinblueSib;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 
 /**
  * Class Index
@@ -19,25 +20,32 @@ class Index extends \Magento\Framework\App\Action\Action
      * @var \Magento\Framework\View\Result\PageFactory
      */
     protected $_resultPageFactory;
-
     /**
      * @var SendinblueSib
      */
-    public $_model;
+    protected $_model;
+    /**
+     * @var ScopeConfigInterface
+     */
+    protected $scopeConfig;
 
     /**
      * Index constructor.
      * @param Context $context
      * @param \Magento\Framework\View\Result\PageFactory $resultPageFactory
+     * @param SendinblueSib $sendinblueSib
+     * @param ScopeConfigInterface $scopeConfig
      */
     public function __construct(
         Context $context,
         \Magento\Framework\View\Result\PageFactory $resultPageFactory,
-        SendinblueSib $sendinblueSib
+        SendinblueSib $sendinblueSib,
+        ScopeConfigInterface $scopeConfig
     )
     {
         $this->_resultPageFactory = $resultPageFactory;
         $this->_model = $sendinblueSib;
+        $this->scopeConfig = $scopeConfig;
         parent::__construct($context);
     }
 
@@ -53,7 +61,6 @@ class Index extends \Magento\Framework\App\Action\Action
     }
 
     /**
-     * @TODO Used from external? No control here, no security... must be changed or removed
      * Get response, send confirm subscription mail and redirect in given url
      *
      * @param $userEmail
@@ -62,7 +69,7 @@ class Index extends \Magento\Framework\App\Action\Action
     public function dubleoptinProcess($userEmail)
     {
         $nlStatus = $this->_model->checkNlStatus($userEmail);
-        if (!empty($userEmail) && $nlStatus = 1) {
+        if (!empty($userEmail) && $nlStatus == 1) {
             $optinListId = $this->_model->getDbData('optin_list_id');
             $listId = $this->_model->getDbData('selected_list_data');
 
@@ -72,12 +79,12 @@ class Index extends \Magento\Framework\App\Action\Action
             $sibClient = $this->_model->createSibClient();
 
             $data = array(
-                    "attributes" => array("DOUBLE_OPT-IN"=>'1'),
-                    "emailBlacklisted" => false,
-                    "listIds" => array_map('intval', explode('|', $listId)),
-                    "unlinkListIds" => array_map('intval', explode('|', $optinListId)),
-                    "smsBlacklisted" => false
-                );
+                "attributes" => array("DOUBLE_OPT-IN"=>'1'),
+                "emailBlacklisted" => false,
+                "listIds" => array_map('intval', explode('|', $listId)),
+                "unlinkListIds" => array_map('intval', explode('|', $optinListId)),
+                "smsBlacklisted" => false
+            );
 
             $sibClient->updateUser($userEmail, $data);
 
@@ -93,7 +100,7 @@ class Index extends \Magento\Framework\App\Action\Action
             header("Location: ".$doubleoptinRedirect);
             ob_flush_end();
         } else {
-            $shopName = $this->_model->_getValueDefault->getValue('web/unsecure/base_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+            $shopName = $this->scopeConfig->getValue('web/unsecure/base_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
             header("Location: ".$shopName);
             ob_flush_end();
         }

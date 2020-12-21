@@ -11,7 +11,6 @@ use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerCollectionFactory;
 use Magento\Customer\Api\CustomerRepositoryInterface as CustomerRepository;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
-use Magento\Setup\Exception;
 use Sendinblue\Sendinblue\Helper\ConfigHelper;
 use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Magento\Newsletter\Model\ResourceModel\Subscriber\CollectionFactory as NewsletterSubscriberCollectionFactory;
@@ -777,7 +776,6 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function importOrderhistory()
     {
-        $trackStatus = $this->getDbData('ord_track_status');
         $dateValue = !empty($this->getDbData('sendin_date_format')) ? $this->getDbData('sendin_date_format') : 'mm-dd-yyyy';
         if (!is_dir($this->_dir->getPath('media') . '/sendinblue_csv')) {
             mkdir($this->_dir->getPath('media') . '/sendinblue_csv', 0777, true);
@@ -790,10 +788,16 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
             $customerData = $customers->getData();
             $email = $customerData['email'];
             $customerId = $customerData['entity_id'];
-            $connection = $this->createDbConnection();
-            $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-            $resultSubscriber = $connection->fetchAll('SELECT count(*) as countval FROM `' . $tblNewsletter . '` WHERE subscriber_email =' . "'$email'" . ' AND subscriber_status = 1');
-            if (isset($resultSubscriber[0]['countval']) && $resultSubscriber[0]['countval'] > 0) {
+
+            /**
+             * @var \Magento\Newsletter\Model\Subscriber $resultSubscriber
+             */
+            $newsletterSubscriberCheck = $this->newsletterSubscriberCollectionFactory->create()
+                ->addFieldToFilter('subscriber_email', $email)
+                ->addFieldToFilter('subscriber_status', 1)
+                ->getFirstItem();
+
+            if ($newsletterSubscriberCheck->getId()) {
                 $orders = $this->orderCollectionFactory->create()
                     ->addAttributeToFilter('customer_id', $customerId)
                     ->getItems();
@@ -1217,13 +1221,15 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function checkNlStatus($email)
     {
-        $connection = $this->createDbConnection();
-        $tblNewsletter = $this->tbWithPrefix('newsletter_subscriber');
-        $resultSubscriber = $connection->fetchAll('SELECT `subscriber_status` FROM `' . $tblNewsletter . '` WHERE subscriber_email =' . "'$email'");
+        /**
+         * @var \Magento\Newsletter\Model\Subscriber $resultSubscriber
+         */
+        $resultSubscriber = $this->newsletterSubscriberCollectionFactory->create()
+            ->addFieldToSelect('subscriber_status')
+            ->addFieldToFilter('subscriber_email', $email)
+            ->getFirstItem();
 
-        foreach ($resultSubscriber as $subsdata) {
-            return $subscriberEmail = !empty($subsdata['subscriber_status']) ? $subsdata['subscriber_status'] : '';
-        }
+        return ( $resultSubscriber->getId() ? $resultSubscriber->getSubscriberStatus() : '');
     }
 
     /**
@@ -1459,4 +1465,3 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         return $this->_getTb->getTable($tableName);
     }
 }
-
