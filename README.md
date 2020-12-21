@@ -1,4 +1,3 @@
-# THIS MODULE IS NOT ALREADY STABLE, WE'RE WORKING ON IT! CONTRIBUTIONS ARE WELCOME
 # [Sendinblue](http://sendinblue.com/) Extension for Magento 2
 
 ## Features
@@ -19,17 +18,22 @@
   * Extract files
   * In your Magento 2 root directory create folder app/code/Sendinblue/Sendinblue/
   * Copy files and folders from archive to that folder
+  * Install Mageplaza SMTP module, follow instructions [here](https://github.com/mageplaza/magento-2-smtp)
+  * In your Magento 2 root directory create folder app/code/Sendinblue/Sendinblue/
   * In command line, using "cd", navigate to your Magento 2 root directory
   * Run commands:
 ```
-forllow steps to install module 
+follow steps to install module 
 
+composer require sendinblue/api-v3-sdk:7.2.0
+
+bin/magento module:enable Mageplaza_Smtp
 bin/magento module:enable Sendinblue_Sendinblue
 bin/magento setup:di:compile
 bin/magento setup:upgrade
 ```
 
-## Installation Method 2 - Installing using composer
+## Installation Method 2 (recommended) - Installing using composer
   * Update composer repositories:
 ```
 {
@@ -50,9 +54,6 @@ bin/magento module:enable Sendinblue_Sendinblue
 bin/magento setup:di:compile
 bin/magento setup:upgrade
 ```
-
-## Contributing
-Contributions are very welcome. In order to contribute, please fork this repository and submit a [pull request](https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request).
 
 ## License
 The code is licensed under [Open Software License ("OSL") v. 3.0](http://opensource.org/licenses/osl-3.0.php).
