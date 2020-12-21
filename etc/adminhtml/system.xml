@@ -6,6 +6,7 @@
  * URL:  https:www.sendinblue.com
  */
 -->
+<!-- @TODO migrate all adminhtml/sib.phtml configurations here (removing also sib.js and hix dependeces), remember to update configHelper also with new core_config_data "group" nodes -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
     <system>
