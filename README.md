@@ -1,3 +1,4 @@
+# THIS MODULE IS NOT ALREADY STABLE, WE'RE WORKING ON IT! CONTRIBUTIONS ARE WELCOME
 # [Sendinblue](http://sendinblue.com/) Extension for Magento 2
 
 ## Features
