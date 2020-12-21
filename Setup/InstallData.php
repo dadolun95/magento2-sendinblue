@@ -23,9 +23,7 @@ class InstallData implements InstallDataInterface
     public function install(ModuleDataSetupInterface $setup, ModuleContextInterface $context)
     {
         $setup->startSetup();
-        $columns = [];
         $columns = ['iso_code', 'country_prefix', 'status', 'created_time', 'update_time'];
-        $data = [];
         $data = [['AD', '376', 1, date('Y-m-d H:i:s'), date('Y-m-d H:i:s')],
             ['AE', '971', 1, date('Y-m-d H:i:s'), date('Y-m-d H:i:s')],
             ['AF', '93', 1, date('Y-m-d H:i:s'), date('Y-m-d H:i:s')],
