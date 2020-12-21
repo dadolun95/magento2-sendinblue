@@ -9,11 +9,11 @@ namespace Sendinblue\Sendinblue\Observer;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Model\SendinblueSib;
 use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
+use \Sendinblue\Sendinblue\Helper\DebugLogger;
 
 /**
- * @TODO add logs for this observer
  * Class CheckoutOrderSuccess
  * @package Sendinblue\Sendinblue\Observer
  */
@@ -32,22 +32,29 @@ class CheckoutOrderSuccess implements ObserverInterface
      * @var CustomerAddressRepository
      */
     protected $customerAddressRepository;
+    /**
+     * @var DebugLogger
+     */
+    protected $debugLogger;
 
     /**
-     * SibOrderObserver constructor.
+     * CheckoutOrderSuccess constructor.
      * @param SendinblueSib $sendinblueSib
      * @param OrderRepositoryInterface $orderRepository
      * @param CustomerAddressRepository $customerAddressRepository
+     * @param DebugLogger $logger
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
         OrderRepositoryInterface $orderRepository,
-        CustomerAddressRepository $customerAddressRepository
+        CustomerAddressRepository $customerAddressRepository,
+        DebugLogger $debugLogger
     )
     {
         $this->sendinblueSib = $sendinblueSib;
         $this->orderRepository = $orderRepository;
         $this->customerAddressRepository = $customerAddressRepository;
+        $this->debugLogger = $debugLogger;
     }
 
     /**
@@ -59,6 +66,7 @@ class CheckoutOrderSuccess implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
+        $this->debugLogger->log(__('CheckoutOrderSuccess observer START'));
         $model = $this->sendinblueSib;
         $sibClient = null;
         $apiKeyV3 = $model->getDbData('api_key_v3');
@@ -76,6 +84,7 @@ class CheckoutOrderSuccess implements ObserverInterface
         $orderPrice = $orderData['grand_total'];
         $dateAdded = $orderData['created_at'];
         $sibStatus = $model->syncSetting();
+        $this->debugLogger->log(__('Try update order %1 for user with email: %2', $orderId, $email));
         if ($sibStatus == 1) {
             if (!empty($apiKeyV3)) {
                 /**
@@ -133,6 +142,9 @@ class CheckoutOrderSuccess implements ObserverInterface
                     $model->sendSmsApi($smsData);
                 }
             }
+        } else {
+            $this->debugLogger->log(__('Contact Sync is not enabled'));
         }
+        $this->debugLogger->log(__('CheckoutOrderSuccess observer END'));
     }
 }

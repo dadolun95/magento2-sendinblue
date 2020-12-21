@@ -10,10 +10,10 @@ use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Helper\DebugLogger;
 
 /**
- * @TODO add logs for this observer
  * Class OrderShipment
  * @package Sendinblue\Sendinblue\Observer
  */
@@ -31,22 +31,29 @@ class OrderShipment implements ObserverInterface
      * @var CustomerAddressRepository
      */
     protected $customerAddressRepository;
+    /**
+     * @var DebugLogger
+     */
+    protected $debugLogger;
 
     /**
-     * SibShipObserver constructor.
+     * OrderShipment constructor.
      * @param SendinblueSib $sendinblueSib
      * @param OrderRepositoryInterface $orderRepository
      * @param CustomerAddressRepository $customerAddressRepository
+     * @param DebugLogger $debugLogger
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
         OrderRepositoryInterface $orderRepository,
-        CustomerAddressRepository $customerAddressRepository
+        CustomerAddressRepository $customerAddressRepository,
+        DebugLogger $debugLogger
     )
     {
         $this->sendinblueSib = $sendinblueSib;
         $this->orderRepository = $orderRepository;
         $this->customerAddressRepository = $customerAddressRepository;
+        $this->debugLogger = $debugLogger;
     }
 
     /**
@@ -58,8 +65,8 @@ class OrderShipment implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
+        $this->debugLogger->log(__('OrderShipment observer START'));
         $model = $this->sendinblueSib;
-
         /**
          * @var \Magento\Sales\Api\Data\ShipmentInterface $shipment
          */
@@ -80,6 +87,7 @@ class OrderShipment implements ObserverInterface
         $orderPrice = $orderData['grand_total'];
         $dateAdded = $orderData['created_at'];
         $sibStatus = $model->syncSetting();
+        $this->debugLogger->log(__('Try update order %1 on shipment', $orderID));
         if ($sibStatus == 1) {
             if (!empty($dateValue) && $dateValue == 'dd-mm-yyyy') {
                 $orderDate = date('d-m-Y', strtotime($dateAdded));
@@ -121,6 +129,9 @@ class OrderShipment implements ObserverInterface
                     $model->sendSmsApi($smsData);
                 }
             }
+        } else {
+            $this->debugLogger->log(__('Contact Sync is not enabled'));
         }
+        $this->debugLogger->log(__('OrderShipment observer END'));
     }
 }

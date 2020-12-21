@@ -66,7 +66,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
      * @return bool
      */
     public function isServiceActive() {
-        if ($this->scopeConfig->getValue('sendinblue/api_key_v3') !== null && $this->scopeConfig->getValue('sendinblue/api_key_status')) {
+        if ($this->getData('api_key_v3') !== null && $this->getData('api_key_status')) {
             return true;
         }
         return false;
@@ -80,7 +80,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
      */
     public function getData($val)
     {
-        return $this->scopeConfig->getValue('sendinblue/' . $val, ScopeInterface::SCOPE_STORE);
+        return $this->scopeConfig->getValue('sendinblue/sendinblue/' . $val, ScopeInterface::SCOPE_STORE);
     }
 
     /**
@@ -91,9 +91,8 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
      */
     public function getFlag($val)
     {
-        return $this->scopeConfig->isSetFlag('sendinblue/' . $val, ScopeInterface::SCOPE_STORE);
+        return $this->scopeConfig->isSetFlag('sendinblue/sendinblue/' . $val, ScopeInterface::SCOPE_STORE);
     }
-
 
     /**
      * @TODO Adminhtml view is not updated when changes come on this method. Should migrate sib.phtml to system.xml or try something different
@@ -103,7 +102,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
      * @param $value
      */
     public function updateData($key, $value) {
-        $this->resourceConfig->saveConfig('sendinblue/' . $key, $value, ScopeConfigInterface::SCOPE_TYPE_DEFAULT, \Magento\Store\Model\Store::DEFAULT_STORE_ID);
+        $this->resourceConfig->saveConfig('sendinblue/sendinblue/' . $key, $value, ScopeConfigInterface::SCOPE_TYPE_DEFAULT, \Magento\Store\Model\Store::DEFAULT_STORE_ID);
         if (strpos($key, 'smtp')) {
             $this->updateSmtpData($key, $value);
         }
@@ -215,7 +214,7 @@ class ConfigHelper extends \Magento\Framework\App\Helper\AbstractHelper
         if (!empty($config)) {
             $langConfig = $config['lang'];
         } else {
-            $langConfig = $this->getDbData('sendin_config_lang');
+            $langConfig = $this->getData('sendin_config_lang');
         }
         $attributesType = array(
             array("name" => "MAGENTO_LANG", "category" => "normal", "type" => "text"),

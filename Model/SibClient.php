@@ -24,9 +24,9 @@ use \SendinBlue\Client\Model\UpdateContact;
 use \SendinBlue\Client\Model\SendSmtpEmail;
 use \SendinBlue\Client\Model\CreateSmsCampaign;
 use \SendinBlue\Client\Model\CreateList;
+use \Sendinblue\Sendinblue\Helper\DebugLogger;
 
 /**
- * @TODO Add dedicated log for each API call (enable or disable by admin config)
  * Class SendinblueSibClient
  * @package Sendinblue\Sendinblue\Model
  */
@@ -36,9 +36,31 @@ class SibClient
     const RESPONSE_CODE_CREATED = 201;
     const RESPONSE_CODE_ACCEPTED = 202;
 
+    const NO_ERROR_CODES = [
+        self::RESPONSE_CODE_OK,
+        self::RESPONSE_CODE_CREATED,
+        self::RESPONSE_CODE_ACCEPTED
+    ];
+
     private $apiKey = null;
     private $lastResponseCode;
     private $config;
+
+    /**
+     * @var DebugLogger
+     */
+    protected $debugLogger;
+
+    /**
+     * SibClient constructor.
+     * @param DebugLogger $debugLogger
+     */
+    public function __construct(
+        DebugLogger $debugLogger
+    )
+    {
+        $this->debugLogger = $debugLogger;
+    }
 
     /**
      * @return \SendinBlue\Client\Model\GetAccount
@@ -52,6 +74,11 @@ class SibClient
         );
         $result = $apiInstance->getAccountWithHttpInfo();
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('getAccount API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getAccount API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -87,6 +114,11 @@ class SibClient
         );
         $result = $apiInstance->getListsWithHttpInfo($data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('getLists API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getLists API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -105,6 +137,11 @@ class SibClient
         );
         $result = $apiInstance->getFolderListsWithHttpInfo($folder, $data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('getListsInFolder API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getListsInFolder API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -120,8 +157,17 @@ class SibClient
             $this->config
         );
         $requestContactImport = new RequestContactImport($data);
-        $result = $apiInstance->importContactsWithHttpInfo($requestContactImport);
+        try {
+            $result = $apiInstance->importContactsWithHttpInfo($requestContactImport);
+        } catch (\Exception $e) {
+            $this->debugLogger->log(__($e->getMessage()));
+        }
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('importUsers API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('importUsers API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -168,6 +214,11 @@ class SibClient
         );
         $result = $apiInstance->getAttributesWithHttpInfo();
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('getAttributes API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getAttributes API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -187,6 +238,11 @@ class SibClient
         $attributeData = $createAttribute = new CreateAttribute($data);
         $result = $apiInstance->createAttributeWithHttpInfo($type, $name, $attributeData);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('createAttribute API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('createAttribute API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -203,6 +259,11 @@ class SibClient
         );
         $result = $apiInstance->getFoldersWithHttpInfo($data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('getFolders API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getFolders API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -238,6 +299,11 @@ class SibClient
         $createFolder = new CreateUpdateFolder($data);
         $result = $apiInstance->createFolderWithHttpInfo($createFolder);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('createFolder API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('createFolder API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -255,6 +321,11 @@ class SibClient
         $createList = new CreateList($data);
         $result = $apiInstance->createListWithHttpInfo($createList);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
+            $this->debugLogger->log(__('createList API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('createList API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -271,6 +342,11 @@ class SibClient
         );
         $result = $apiInstance->getContactInfoWithHttpInfo(urlencode($email));
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('getUser API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getUser API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -288,6 +364,11 @@ class SibClient
         $createContact = new CreateContact($data);
         $result = $apiInstance->createContactWithHttpInfo($createContact);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('createUser API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('createUser API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -306,6 +387,11 @@ class SibClient
         $updateContact = new UpdateContact($data);
         $result = $apiInstance->updateContactWithHttpInfo($email, $updateContact);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('updateUser API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('updateUser API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -320,9 +406,14 @@ class SibClient
             new HttpClient(),
             $this->config
         );
-        $sendTransacSms = new SendTransacSms();
+        $sendTransacSms = new SendTransacSms($data);
         $result = $apiInstance->sendTransacSmsWithHttpInfo($sendTransacSms);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('sendSms API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('sendSms API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -340,6 +431,11 @@ class SibClient
         $sendSmtpEmail = new SendSmtpEmail($data);
         $result = $apiInstance->sendTransacEmailWithHttpInfo($sendSmtpEmail);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('sendTransactionalTemplate API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('sendTransactionalTemplate API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -357,6 +453,11 @@ class SibClient
         $createSmsCampaign = new CreateSmsCampaign($data);
         $result = $apiInstance->createSmsCampaignWithHttpInfo($createSmsCampaign);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('createSmsCampaign API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('createSmsCampaign API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -374,6 +475,11 @@ class SibClient
         );
         $result = $apiInstance->getSmtpTemplatesWithHttpInfo($data['templateStatus'], $data['limit'], $data['offset']);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('getEmailTemplates API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getEmailTemplates API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -424,6 +530,11 @@ class SibClient
         );
         $result = $apiInstance->getSmtpTemplateWithHttpInfo($id);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('getTemplateById API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getTemplateById API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -441,6 +552,11 @@ class SibClient
         $sendSmtpEmail = new SendSmtpEmail($data);
         $result = $apiInstance->sendTransacEmailWithHttpInfo($sendSmtpEmail);
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('sendEmail API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('sendEmail API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 
@@ -456,6 +572,11 @@ class SibClient
         );
         $result = $apiInstance->getSendersWithHttpInfo();
         $this->lastResponseCode = $result[1];
+        if (in_array($result[1], self::NO_ERROR_CODES)){
+            $this->debugLogger->log(__('getSenders API call response with a %1 code', $result[1]));
+        } else {
+            $this->debugLogger->log(__('getSenders API call goes on error, response with a %1 code', $result[1]));
+        }
         return $result[0];
     }
 

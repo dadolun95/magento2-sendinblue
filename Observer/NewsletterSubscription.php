@@ -8,12 +8,12 @@ namespace Sendinblue\Sendinblue\Observer;
 
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Model\SendinblueSib;
 use Magento\Customer\Api\AddressRepositoryInterface as CustomerAddressRepository;
 use Magento\Store\Model\StoreManagerInterface;
+use \Sendinblue\Sendinblue\Helper\DebugLogger;
 
 /**
- * @TODO add logs for this observer
  * Class NewsletterSubscription
  * @package Sendinblue\Sendinblue\Observer
  */
@@ -33,21 +33,29 @@ class NewsletterSubscription implements ObserverInterface
      * @var \Magento\Store\Model\StoreManagerInterface
      */
     protected $storeManager;
+    /**
+     * @var DebugLogger
+     */
+    protected $debugLogger;
 
     /**
-     * SibNlObserver constructor.
+     * NewsletterSubscription constructor.
      * @param SendinblueSib $sendinblueSib
      * @param CustomerAddressRepository $customerAddressRepository
+     * @param StoreManagerInterface $storeManager
+     * @param DebugLogger $debugLogger
      */
     public function __construct(
         SendinblueSib $sendinblueSib,
         CustomerAddressRepository $customerAddressRepository,
-        StoreManagerInterface $storeManager
+        StoreManagerInterface $storeManager,
+        DebugLogger $debugLogger
     )
     {
         $this->sendinblueSib = $sendinblueSib;
         $this->customerAddressRepository = $customerAddressRepository;
         $this->storeManager = $storeManager;
+        $this->debugLogger = $debugLogger;
     }
 
     /**
@@ -59,14 +67,17 @@ class NewsletterSubscription implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
+        $this->debugLogger->log(__('NewsletterSubscription observer START'));
         $model = $this->sendinblueSib;
         $updateDataInSib = [];
         $subscriber = $observer->getEvent()->getSubscriber();
         $email = $subscriber->getSubscriberEmail();
         $NlStatus = $subscriber->getSubscriberStatus();
         $sibStatus = $model->syncSetting();
+        $this->debugLogger->log(__('Try update subscription for user with email: %1', $email));
         if ($sibStatus == 1) {
             if ($subscriber->getCustomerId() && $subscriber->getCustomerId() > 0 && $NlStatus == 1) {
+                $this->debugLogger->log(__('Subscribe user by runtime'));
                 $customer = $model->getCustomer($subscriber->getCustomerId());
                 $billingId = !empty($customer['default_billing']) ? $customer['default_billing'] : '';
                 $firstName = $customer['firstname'];
@@ -126,6 +137,7 @@ class NewsletterSubscription implements ObserverInterface
                 $model->subscribeByruntime($email, $updateDataInSib);
             } else {
                 if ($NlStatus == 1) {
+                    $this->debugLogger->log(__('Subscribe user by runtime'));
                     $updateDataInSib['CLIENT'] = 0;
                     $storeId = $subscriber->getStoreId();
                     if ($storeId) {
@@ -143,9 +155,13 @@ class NewsletterSubscription implements ObserverInterface
                     $model->subscribeByruntime($email, $updateDataInSib);
                     $model->sendWsTemplateMail($email);
                 } else {
+                    $this->debugLogger->log(__('Unsubscribe user by runtime'));
                     $model->unsubscribeByruntime($email);
                 }
             }
+        } else {
+            $this->debugLogger->log(__('Contact Sync is not enabled'));
         }
+        $this->debugLogger->log(__('NewsletterSubscription observer END'));
     }
 }

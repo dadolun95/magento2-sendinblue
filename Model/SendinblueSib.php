@@ -442,11 +442,9 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function getSubscribeCustomer()
     {
-        $data = array();
         $customerAddressData = array();
         $attributesName = $this->configHelper->getDefaultSubscriptionAttributes();
         $collection = $this->customerCollectionFactory->create()->getItems();
-
         foreach ($collection as $customers) {
             $customerData = $customers->getData();
             $email = $customerData['email'];
@@ -462,7 +460,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
                 $customerAddress['company'] = !empty($company = $address->getCompany()) ? $company : '';
                 $customerAddress['street'] = !empty($streetValue) ? $streetValue : '';
                 $customerAddress['postcode'] = !empty($postcode = $address->getPostcode()) ? $postcode : '';
-                $customerAddress['region'] = !empty($region = $address->getRegion()) ? $region : '';
+                $customerAddress['region'] = !empty($region = $address->getRegion()->getRegionCode()) ? $region : '';
                 $customerAddress['city'] = !empty($city = $address->getCity()) ? $city : '';
             }
             $customerAddress['client'] = $customerId > 0 ? 1 : 0;
@@ -1465,3 +1463,4 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
         return $this->_getTb->getTable($tableName);
     }
 }
+

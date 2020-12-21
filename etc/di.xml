@@ -1,14 +1,23 @@
 <?xml version="1.0"?>
-<!--
-/**
- * @category    Magento 2
- * @package     Sendinblue_Sendinblue
- * URL:  https:www.sendinblue.com
- */
--->
+
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <!-- for override magento default Transport class with our custom module model-->
-    <preference for="Magento\Framework\Mail\Transport" type="Sendinblue\Sendinblue\Model\Transport"/>
-    <preference for="Magento\Framework\Mail\TransportInterface" type="Sendinblue\Sendinblue\Model\Transport"/>
+    <!-- Add dedicated log system for sendinblue module -->
+    <virtualType name="Sendinblue\Sendinblue\Model\IntegrationDebug" type="Magento\Framework\Logger\Handler\Base">
+        <arguments>
+            <argument name="fileName" xsi:type="string">/var/log/sendinblue-integration.log</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="Sendinblue\Sendinblue\Model\Method\IntegrationLogger" type="Magento\Framework\Logger\Monolog">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="debug" xsi:type="object">Sendinblue\Sendinblue\Model\IntegrationDebug</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <type name="Sendinblue\Sendinblue\Helper\DebugLogger">
+        <arguments>
+            <argument name="logger" xsi:type="object">Sendinblue\Sendinblue\Model\Method\IntegrationLogger</argument>
+        </arguments>
+    </type>
 </config>

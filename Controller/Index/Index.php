@@ -79,12 +79,12 @@ class Index extends \Magento\Framework\App\Action\Action
             $sibClient = $this->_model->createSibClient();
 
             $data = array(
-                "attributes" => array("DOUBLE_OPT-IN"=>'1'),
-                "emailBlacklisted" => false,
-                "listIds" => array_map('intval', explode('|', $listId)),
-                "unlinkListIds" => array_map('intval', explode('|', $optinListId)),
-                "smsBlacklisted" => false
-            );
+                    "attributes" => array("DOUBLE_OPT-IN"=>'1'),
+                    "emailBlacklisted" => false,
+                    "listIds" => array_map('intval', explode('|', $listId)),
+                    "unlinkListIds" => array_map('intval', explode('|', $optinListId)),
+                    "smsBlacklisted" => false
+                );
 
             $sibClient->updateUser($userEmail, $data);
 

@@ -4,14 +4,15 @@
  * @package     Sendinblue_Sendinblue
  * URL:  https:www.sendinblue.com
  */
+
 namespace Sendinblue\Sendinblue\Observer;
 
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Helper\DebugLogger;
 
 /**
- * @TODO add logs for this observer
  * Class CustomerRegistration
  * @package Sendinblue\Sendinblue\Observer
  */
@@ -21,16 +22,23 @@ class CustomerRegistration implements ObserverInterface
      * @var SendinblueSib
      */
     protected $sendinblueSib;
+    /**
+     * @var DebugLogger
+     */
+    protected $debugLogger;
 
     /**
-     * SibObserver constructor.
+     * CustomerRegistration constructor.
      * @param SendinblueSib $sendinblueSib
+     * @param DebugLogger $debugLogger
      */
     public function __construct(
-        SendinblueSib $sendinblueSib
+        SendinblueSib $sendinblueSib,
+        DebugLogger $debugLogger
     )
     {
         $this->sendinblueSib = $sendinblueSib;
+        $this->debugLogger = $debugLogger;
     }
 
     /**
@@ -41,11 +49,13 @@ class CustomerRegistration implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
+        $this->debugLogger->log(__('CustomerRegistration observer START'));
         $model = $this->sendinblueSib;
         $customer = $observer->getEvent()->getData('customer');
-        $email= $customer->getEmail();
+        $email = $customer->getEmail();
         $NlStatus = $model->checkNlStatus($email);
         $sibStatus = $model->syncSetting();
+        $this->debugLogger->log(__('Try register user with email: %1', $email));
         if ($NlStatus == 1 && $sibStatus == 1) {
             $firstName = $customer->getFirstName();
             $lastName = $customer->getLastName();
@@ -80,6 +90,9 @@ class CustomerRegistration implements ObserverInterface
             }
             $model->subscribeByruntime($email, $updateDataInSib);
             $model->sendWsTemplateMail($email);
+        } else {
+            $this->debugLogger->log(__('Contact Sync is not enabled'));
         }
+        $this->debugLogger->log(__('CustomerRegistration observer END'));
     }
 }

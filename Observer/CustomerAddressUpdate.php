@@ -8,10 +8,10 @@ namespace Sendinblue\Sendinblue\Observer;
 
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Model\SendinblueSib;
+use \Sendinblue\Sendinblue\Helper\DebugLogger;
 
 /**
- * @TODO add logs for this observer
  * Class CustomerAddressUpdate
  * @package Sendinblue\Sendinblue\Observer
  */
@@ -22,16 +22,23 @@ class CustomerAddressUpdate implements ObserverInterface
      * @var SendinblueSib
      */
     protected $sendinblueSib;
+    /**
+     * @var DebugLogger
+     */
+    protected $debugLogger;
 
     /**
-     * SibObserver constructor.
+     * CustomerAddressUpdate constructor.
      * @param SendinblueSib $sendinblueSib
+     * @param DebugLogger $debugLogger
      */
     public function __construct(
-        SendinblueSib $sendinblueSib
+        SendinblueSib $sendinblueSib,
+        DebugLogger $debugLogger
     )
     {
         $this->sendinblueSib = $sendinblueSib;
+        $this->debugLogger = $debugLogger;
     }
 
     /**
@@ -39,6 +46,7 @@ class CustomerAddressUpdate implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
+        $this->debugLogger->log(__('CustomerAddressUpdate observer START'));
         $model = $this->sendinblueSib;
         $updateDataInSib = array();
         $address = $observer->getCustomerAddress();
@@ -49,6 +57,7 @@ class CustomerAddressUpdate implements ObserverInterface
         $email= $customer->getEmail();
         $NlStatus = $model->checkNlStatus($email);
         $sibStatus = $model->syncSetting();
+        $this->debugLogger->log(__('Try update customer address (for customer with email: %1', $email));
         if ($status == 1 && $NlStatus == 1 && $sibStatus == 1) {
             $street = $address->getStreet();
             $streetValue = '';
@@ -102,6 +111,9 @@ class CustomerAddressUpdate implements ObserverInterface
                 $updateDataInSib['MAGENTO_LANG'] = $storeView;
             }
             $model->subscribeByruntime($email, $updateDataInSib);
+        } else {
+            $this->debugLogger->log(__('Contact Sync is not enabled'));
         }
+        $this->debugLogger->log(__('CustomerAddressUpdate observer END'));
     }
 }
