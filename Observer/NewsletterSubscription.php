@@ -78,12 +78,15 @@ class NewsletterSubscription implements ObserverInterface
         if ($sibStatus == 1) {
             if ($subscriber->getCustomerId() && $subscriber->getCustomerId() > 0 && $NlStatus == 1) {
                 $this->debugLogger->log(__('Subscribe user by runtime'));
+                /**
+                 * @var \Magento\Customer\Api\Data\CustomerInterface $customer
+                 */
                 $customer = $model->getCustomer($subscriber->getCustomerId());
-                $billingId = !empty($customer['default_billing']) ? $customer['default_billing'] : '';
-                $firstName = $customer['firstname'];
-                $lastName = $customer['lastname'];
-                $storeView = $customer['created_in'];
-                $storeId = $customer['store_id'];
+                $billingId = !empty($customer->getDefaultBilling()) ? $customer->getDefaultBilling() : '';
+                $firstName = $customer->getFirstname();
+                $lastName = $customer->getLastname();
+                $storeView = $customer->getCreatedIn();
+                $storeId = $customer->getStoreId();
                 $localeLang = $model->getDbData('sendin_config_lang');
                 if (!empty($firstName)) {
                     if ($localeLang == 'fr') {
@@ -131,7 +134,7 @@ class NewsletterSubscription implements ObserverInterface
                     $updateDataInSib['COUNTRY_ID'] = !empty($address->getCountryId()) ? $address->getCountryId() : '';
                     $updateDataInSib['STREET'] = !empty($streetValue) ? $streetValue : '';
                     $updateDataInSib['POSTCODE'] = !empty($address->getPostcode()) ? $address->getPostcode() : '';
-                    $updateDataInSib['REGION'] = !empty($address->getRegion()) ? $address->getRegion() : '';
+                    $updateDataInSib['REGION'] = !empty($address->getRegion()) ? $address->getRegion()->getRegionCode() : '';
                     $updateDataInSib['CITY'] = !empty($address->getCity()) ? $address->getCity() : '';
                 }
                 $model->subscribeByruntime($email, $updateDataInSib);

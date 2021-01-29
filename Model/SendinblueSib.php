@@ -533,8 +533,7 @@ class SendinblueSib extends \Magento\Framework\Model\AbstractModel
      */
     public function getCustomer($customerId)
     {
-        $dataCust = $this->customerRepository->getById($customerId);
-        return $dataCust->getData();
+        return $this->customerRepository->getById($customerId);
     }
 
     /**

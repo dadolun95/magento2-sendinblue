@@ -364,7 +364,7 @@ class SibClient
         $createContact = new CreateContact($data);
         $result = $apiInstance->createContactWithHttpInfo($createContact);
         $this->lastResponseCode = $result[1];
-        if (in_array($result[1], self::NO_ERROR_CODES)){
+        if (in_array($result[1], self::NO_ERROR_CODES)) {
             $this->debugLogger->log(__('createUser API call response with a %1 code', $result[1]));
         } else {
             $this->debugLogger->log(__('createUser API call goes on error, response with a %1 code', $result[1]));
