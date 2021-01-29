@@ -497,22 +497,23 @@ class SibClient
              * @var \SendinBlue\Client\Model\GetSmtpTemplates $templateData
              */
             $templateData = $this->getEmailTemplates(array('templateStatus' => 'true', 'limit' => $limit, 'offset' => $offset));
+            $loadedTemplates = [];
             if (!$templateData->getTemplates() || $templateData->getTemplates() === null) {
-                $templateData = array("templates" => array(), "count" => 0);
+                $loadedTemplates = array("templates" => array(), "count" => 0);
             } else {
                 foreach($templateData->getTemplates() as $template) {
-                    $templateData["templates"][] = [
+                    $loadedTemplates["templates"][] = [
                         "name" => $template->getName(),
                         "id" => $template->getId(),
                         "isActive" => $template->getIsActive(),
                         "htmlContent" => $template->getHtmlContent()
                     ];
                 }
-                $templateData["count"] = $templateData->getCount();
+                $loadedTemplates["count"] = $templateData->getCount();
             }
-            $templates["templates"] = array_merge($templates["templates"], $templateData);
+            $templates["templates"] = array_merge($templates["templates"], $loadedTemplates['templates']);
             $offset += 50;
-        } while (count($templates["templates"]) < $templateData["count"]);
+        } while (count($templates["templates"]) < $loadedTemplates["count"]);
         $templates["count"] = count($templates["templates"]);
         return $templates;
     }
