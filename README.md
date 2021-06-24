@@ -1,7 +1,7 @@
 # [Sendinblue](http://sendinblue.com/) Extension for Magento 2
 
 ## ATTENTION
-This module is not stable. We're working to make it works :)
+This module is deprecated. See https://github.com/dadolun95/magento2-sib-core instead.
 
 ## Features
   * With the Sendinblue plugin, you can find everything you need to easily and efficiently send your email & SMS campaigns to your prospects and customers.
